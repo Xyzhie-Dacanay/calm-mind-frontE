@@ -11,15 +11,50 @@ export default function LoginScreen() {
   const [formAnimation, setFormAnimation] = useState("animate-swap-in-left");
   const [imageAnimation, setImageAnimation] = useState("animate-swap-in-left");
 
-  const { login, loading, error } = useAuthStore();
+  // Local state for handling errors and loading in the login form
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const { login: storeLogin, loading: storeLoading, error: storeError } = useAuthStore();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
-    const success = await login(email, password);
-    if (success) {
-      navigate("/home");
+  e.preventDefault();
+
+  try {
+    setError("");
+    setLoading(true);
+
+    const response = await fetch("http://localhost:5000/api/users/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase(),
+        password,
+      }),
+    });
+
+    const data = await response.json();
+    console.log("Login response:", data); // <--- helpful to debug
+
+    if (!response.ok) {
+      setError(data.message || "Login failed.");
+      return;
     }
-  };
+
+    if (data.token) localStorage.setItem("token", data.token);
+    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+    navigate("/home");
+  } catch (err) {
+    console.error("Login error:", err);
+    setError("Login failed.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleGoSignup = () => {
     setFormAnimation("animate-swap-out-left");

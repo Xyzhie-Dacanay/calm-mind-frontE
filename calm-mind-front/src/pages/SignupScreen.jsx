@@ -2,6 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { useAuthStore } from "../store/authStore";
 
+
+
 export default function SignupScreen() {
   const navigate = useNavigate();
   const { signup, loading: storeLoading, error: storeError } = useAuthStore();
@@ -27,37 +29,61 @@ export default function SignupScreen() {
     }));
   };
 
-  const handleSignup = async (e) => {
-    e.preventDefault();
+ const handleSignup = async (e) => {
+  e.preventDefault();
 
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match.");
+  if (form.password !== form.confirmPassword) {
+    setError("Passwords do not match.");
+    return;
+  }
+
+  if (!form.agree) {
+    setError("You must agree to the Terms & Privacy Policy.");
+    return;
+  }
+
+  try {
+    setError("");
+    setLoading(true);
+
+    const response = await fetch("http://localhost:5000/api/users/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email.toLowerCase(),
+        password: form.password,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setError(data.message || "Registration failed.");
       return;
     }
 
-    if (!form.agree) {
-      setError("You must agree to the Terms & Privacy Policy.");
-      return;
+    // Save token if backend returns one
+    if (data.token) {
+      localStorage.setItem("token", data.token);
     }
 
-    try {
-      setError("");
-      setLoading(true);
-
-      const success = await signup(form.name, form.email, form.password);
-
-      if (success) {
-        navigate("/home");
-      } else {
-        setError(storeError || "Registration failed.");
-      }
-    } catch (err) {
-      console.error("Signup error:", err);
-      setError("Registration failed.");
-    } finally {
-      setLoading(false);
+    // Optionally store user info
+    if (data.user) {
+      localStorage.setItem("user", JSON.stringify(data.user));
     }
-  };
+
+    navigate("/home");
+  } catch (err) {
+    console.error("Signup error:", err);
+    setError("Registration failed.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleGoLogin = () => {
     setFormAnimation("animate-swap-out-right");
