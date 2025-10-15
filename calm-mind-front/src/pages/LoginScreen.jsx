@@ -142,7 +142,6 @@ export default function LoginScreen() {
             <button
               type="submit"
               className="w-full p-3 bg-black text-white rounded-md hover:bg-gray-800 transition"
-              disabled={loading}
             >
               Log In
             </button>

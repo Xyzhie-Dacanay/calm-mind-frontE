@@ -215,7 +215,6 @@ export default function SignupScreen() {
 
             <button
               type="submit"
-              disabled={loading || storeLoading}
               className="w-full p-3 bg-black text-white rounded-md hover:bg-gray-800 transition"
             >
               {loading || storeLoading ? "Creating account..." : "Sign Up"}
