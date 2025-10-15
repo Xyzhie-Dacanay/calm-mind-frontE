@@ -65,24 +65,17 @@ export default function SignupScreen() {
       return;
     }
 
-    // Save token if backend returns one
-    if (data.token) {
-      localStorage.setItem("token", data.token);
-    }
+    // ✅ Registration successful — show message and go to login
+      alert("Registration successful! Please log in to continue.");
+      navigate("/login");
 
-    // Optionally store user info
-    if (data.user) {
-      localStorage.setItem("user", JSON.stringify(data.user));
+    } catch (err) {
+      console.error("Signup error:", err);
+      setError("Registration failed.");
+    } finally {
+      setLoading(false);
     }
-
-    navigate("/home");
-  } catch (err) {
-    console.error("Signup error:", err);
-    setError("Registration failed.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   const handleGoLogin = () => {
