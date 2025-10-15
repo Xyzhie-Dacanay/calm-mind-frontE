@@ -69,7 +69,7 @@ export default function LoginScreen() {
 
             <button
               type="submit"
-              className="w-full p-3 bg-black text-white rounded-md hover:bg-gray-800 transition"
+              className="w-full p-3 bg-accent on-accent rounded-md hover:brightness-95 transition"
             >
               Log In
             </button>

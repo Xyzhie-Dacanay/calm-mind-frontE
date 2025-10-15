@@ -1,7 +1,8 @@
+/* eslint-disable no-unused-vars */
 import { motion } from "framer-motion";
 import { useLocation } from "react-router-dom";
 
-export default function PageSlide({ children }) {
+export default function PageSlider({ children }) {
   const location = useLocation();
   const dir = location.state?.dir ?? 0;
 
