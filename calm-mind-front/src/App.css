@@ -3,7 +3,7 @@
   width: 100%;
   max-width: none;
   margin: 0;
-  padding: 0 1rem; /* small horizontal gutter */
+  padding: 0; /* small horizontal gutter */
   text-align: left;
 }
 
