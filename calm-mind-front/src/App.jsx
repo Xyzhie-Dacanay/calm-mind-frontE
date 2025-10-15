@@ -10,7 +10,8 @@ import Homepage from "./pages/Homepage";
 import { useAuthStore } from "./store/authStore";
 
 function App() {
-  const { token } = useAuthStore();
+    const { token: storeToken } = useAuthStore();
+    const token = storeToken || localStorage.getItem("token"); // fallback to localStorage
 
   return (
     <Router>

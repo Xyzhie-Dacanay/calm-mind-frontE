@@ -46,6 +46,10 @@ export default function LoginScreen() {
     if (data.token) localStorage.setItem("token", data.token);
     if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
 
+    // Debugging token
+      console.log("Token in localStorage:", localStorage.getItem("token"));
+      console.log("User in localStorage:", localStorage.getItem("user"));
+
     navigate("/home");
   } catch (err) {
     console.error("Login error:", err);
