@@ -1,12 +1,13 @@
 // src/components/Sidebar.jsx
 import React from "react";
+import { Link, useLocation } from "react-router-dom";
 
 const primaryMenu = [
-  { label: "Home", icon: "home", href: "#" },
-  { label: "Task Management", icon: "tasks", href: "#" },
-  { label: "Calendar", icon: "calendar", href: "#" },
-  { label: "Chat Bot", icon: "chat", href: "#" },
-  { label: "Analytics", icon: "chart", href: "#" },
+  { label: "Home", icon: "home", href: "/home" },
+  { label: "Task Management", icon: "tasks", href: "/tasks" },
+  { label: "Calendar", icon: "calendar", href: "/calendar" },
+  { label: "Chat Bot", icon: "chat", href: "/chatbot" },
+  { label: "Analytics", icon: "chart", href: "/analytics" },
 ];
 
 const generalMenu = [
@@ -74,29 +75,30 @@ function Icon({ name, active }) {
 
 export default function Sidebar({
   theme = "light",
-  active = "Home",
+  active,
   onToggleTheme = () => {},
 }) {
+  const location = useLocation();
+  const path = location?.pathname || "/";
   return (
-    <aside className="hidden lg:flex w-[18rem] shrink-0 flex-col rounded-xl bg-card border border-gray-200 shadow-sm" aria-label="Primary">
-    
-      <div className="w-full flex items-center justify-center gap-0 py-12">
-        <img src="/logo.png" alt="Calm Mind Logo" className="h-14 w-16" />
+    <aside className="hidden lg:flex w-[18rem] shrink-0 flex-col rounded-2xl bg-card border border-gray-200 p-6 gap-4 shadow-sm" aria-label="Primary">
+      <div className="w-full flex items-center justify-center gap-0 py-3">
+        <img src="/logo.png" alt="Calm Mind Logo" className="h-16 w-16" />
         <img src="/calmtxt.svg" alt="Calm Mind" className="h-9 object-contain" />
       </div>
 
-     
-      <nav className="flex-1 text-[14px]" role="navigation">
+      <nav className="flex-1 text-[15px]" role="navigation">
         <div className="uppercase text-gray-400 text-[11px] px-3 mb-2">Menu</div>
         <ul className="space-y-2">
           {primaryMenu.map((m) => {
-            const isActive = m.label === active;
+            // if an explicit `active` prop is provided, use it; otherwise detect by path
+            const isActive = typeof active === 'string' ? m.label === active : path.startsWith(m.href);
             return (
               <li key={m.label}>
-                <a
-                  href={m.href}
+                <Link
+                  to={m.href}
                   aria-current={isActive ? "page" : undefined}
-                  className={`relative flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  className={`relative flex items-center gap-3 px-4 py-3 rounded-2xl hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                     isActive ? "bg-card text-accent font-semibold" : "text-gray-700"
                   }`}
                 >
@@ -105,7 +107,7 @@ export default function Sidebar({
                   )}
                   <Icon name={m.icon} active={isActive} />
                   <span className="truncate">{m.label}</span>
-                </a>
+                </Link>
               </li>
             );
           })}
