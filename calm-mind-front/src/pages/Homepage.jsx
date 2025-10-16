@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar"; // adjust path if needed
 import Card from "../components/HoverCard";
+import MiniBarChart from "../components/MiniBarChart"; // <-- reusable Recharts bar chart
 
 export default function HomePage() {
   const [theme, setTheme] = useState(() => {
@@ -37,6 +38,48 @@ export default function HomePage() {
     });
   };
 
+  // ---------- Recharts data (right sidebar "Profile + chart") ----------
+  const [weeklyData, setWeeklyData] = useState([]);
+  const [weeklyLoading, setWeeklyLoading] = useState(true);
+
+  // Placeholder used if backend not ready / fetch fails
+  const weeklyPlaceholder = [
+    { name: "Mon", pv: 12, uv: 8 },
+    { name: "Tue", pv: 20, uv: 14 },
+    { name: "Wed", pv: 6,  uv: 9 },
+    { name: "Thu", pv: 10, uv: 7 },
+    { name: "Fri", pv: 8,  uv: 5 },
+    { name: "Sat", pv: 20, uv: 13 },
+    { name: "Sun", pv: 4,  uv: 6 },
+  ];
+
+  useEffect(() => {
+    let isMounted = true;
+    (async () => {
+      try {
+        // Adjust endpoint to your API
+        const res = await fetch("/api/stats/weekly-activity", { credentials: "include" });
+        if (!res.ok) throw new Error("Failed to load weekly activity");
+        const json = await res.json();
+
+        // Expecting: { data: [{ name:"Mon", pv:12, uv:8 }, ...] }
+        const incoming = Array.isArray(json?.data) ? json.data : [];
+
+        if (isMounted) {
+          // If your backend uses different keys (e.g., day/completed/inProgress), map here:
+          // const mapped = incoming.map(r => ({ name: r.day, pv: r.completed, uv: r.inProgress }));
+          setWeeklyData(incoming.length ? incoming : weeklyPlaceholder);
+        }
+      } catch {
+        if (isMounted) setWeeklyData(weeklyPlaceholder);
+      } finally {
+        if (isMounted) setWeeklyLoading(false);
+      }
+    })();
+    return () => { isMounted = false; };
+  }, []);
+  // --------------------------------------------------------------------
+
   return (
     <div className="min-h-screen h-screen">
       <div className="h-full w-full flex">
@@ -49,7 +92,7 @@ export default function HomePage() {
 
             {/* Header */}
             <div className="col-span-12">
-              <Card className="h-[80px] w-full px-4 flex items-center justify-between">
+              <Card className="h-[80px] w-full px-4 flex items-center justify-between hover:shadow-none hover:-translate-y-0 hover:bg-inherit cursor-default">
                 <h1 className="text-3xl font-bold tracking-tight">Home</h1>
                 <div className="flex items-center gap-3">
                   <div className="hidden md:flex items-center gap-2 bg-card rounded-full px-4 py-2 border border-gray-200">
@@ -72,10 +115,8 @@ export default function HomePage() {
               </Card>
             </div>
 
-
             {/* Left grid */}
             <section className="col-span-2 xl:col-span-8 grid grid-rows-[200px_120px_324px_auto] grid-cols-12 gap-3 h-full">
-
 
               {/* Overall Information */}
               <Card className="col-span-6 row-span-2 text-primary p-4 relative overflow-hidden h-full panel-overall">
@@ -99,9 +140,9 @@ export default function HomePage() {
                 {/* Mini-stat cards */}
                 <div className="mt-8 grid grid-cols-3 gap-5 justify-items-center">
                   {[
-                    ['Tasks', '34', 'M11 7h8M6 12h14M6 17h14'],
-                    ['In Progress', '23', 'M12 6v6l4 2'],
-                    ['Completed', '13', 'm5 13 4 4L19 7'],
+                    ["Tasks", "34", "M11 7h8M6 12h14M6 17h14"],
+                    ["In Progress", "23", "M12 6v6l4 2"],
+                    ["Completed", "13", "m5 13 4 4L19 7"],
                   ].map(([label, value, iconPath]) => (
                     <Card key={label} className="text-primary p-4 flex flex-col items-center justify-center gap-3 h-32 w-36 md:w-28">
                       <div className="h-10 w-6 rounded-full bg-card grid place-items-center shadow-sm text-accent">
@@ -133,7 +174,7 @@ export default function HomePage() {
                     <button
                       key={i}
                       aria-label={`Mood ${i + 1}`}
-                      className={`h-14 w-14 rounded-full grid place-items-center border border-gray-700 transition-shadow ${i === 2 ? 'bg-accent on-accent' : 'bg-card text-primary hover:ring-2 hover:ring-accent/60 focus-visible:ring-2 focus-visible:ring-accent'}`}
+                      className={`h-14 w-14 rounded-full grid place-items-center border border-gray-700 transition-shadow ${i === 2 ? "bg-accent on-accent" : "bg-card text-primary hover:ring-2 hover:ring-accent/60 focus-visible:ring-2 focus-visible:ring-accent"}`}
                     >
                       <span className="text-lg">●</span>
                     </button>
@@ -162,10 +203,15 @@ export default function HomePage() {
                   {[
                     ...Array(3).fill(null),
                     ...Array.from({ length: 31 }, (_, i) => i + 1),
-                    ...Array(1).fill(null)
+                    ...Array(1).fill(null),
                   ].map((d, idx) => (
-                    <div key={idx} className={`flex items-center justify-center rounded-md transition-colors duration-150 ${d === 24 ? 'bg-accent on-accent font-extrabold shadow-md' : 'hover:bg-card text-gray-700'}`}>
-                      <span className={`${d === 24 ? 'text-base' : 'text-sm'}`}>{d ?? ''}</span>
+                    <div
+                      key={idx}
+                      className={`flex items-center justify-center rounded-md transition-colors duration-150 ${
+                        d === 24 ? "bg-accent on-accent font-extrabold shadow-md" : "hover:bg-card text-gray-700"
+                      }`}
+                    >
+                      <span className={`${d === 24 ? "text-base" : "text-sm"}`}>{d ?? ""}</span>
                     </div>
                   ))}
                 </div>
@@ -190,61 +236,39 @@ export default function HomePage() {
             </section>
 
             {/* Right sidebar content */}
-            <section className="col-span-24 xl:col-span-4 grid grid-rows-[120px_200px_100px_auto] gap-2 h-full">
-            
-              {/* Profile + chart */}
+            <section className="col-span-28 xl:col-span-4 grid grid-rows-[120px_200px_100px_auto] gap-2 h-full">
+              
+              {/* Profile + chart (Recharts replaces manual bars) */}
               <Card className="row-span-2 p-8 h-full relative">
                 <div className="avatar-abs h-20 w-20 rounded-full bg-accent overflow-hidden grid place-items-center text-3xl on-accent">👩🏻‍💼</div>
                 <div>
                   <h2 className="p-1 font-bold text-m tracking-tight">Goodmorning, Dodi!</h2>
-                  <div className="p-1 ml-1 mb-9  text-sm text-gray-500">Vivamus sed tortor in ante placerat auctor.</div>
+                  <div className="p-1 ml-1 mb-5 text-sm text-gray-500">Vivamus sed tortor in ante placerat auctor.</div>
                 </div>
 
-                {/* Simple bar chart */}
-                <div className="mt-6 chart-wrap">
-                  <div className="chart-left">
-                    <div className="chart-label">50</div>
-                    <div className="chart-label">40</div>
-                    <div className="chart-label">30</div>
-                    <div className="chart-label">20</div>
-                    <div className="chart-label">10</div>
-                    <div className="chart-label">0</div>
-                    <div className="chart-label">x</div>
-                  </div>
-                  <div className="chart-right">
-                    <div className="mt-9 grid grid-cols-7 gap-3 items-end h-28">
-                      {(() => {
-                        const data = [12, 20, 6, 10, 8, 20, 4];
-                        const maxValue = 40;
-                        const maxPixels = 112;
-                        return data.map((v, i) => {
-                          const px = Math.round((v / maxValue) * maxPixels);
-                          return (
-                            <div key={i} className="flex flex-col items-center gap-1">
-                              <div className="bar w-6">
-                                <div className="bar-fill" style={{ height: `${px}px` }} />
-                              </div>
-                              <div className="text-[10px] text-gray-500 mt-1">{['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i]}</div>
-                            </div>
-                          );
-                        });
-                      })()}
-                    </div>
-                  </div>
-                </div>
+                {/* Recharts bar chart (stacked pv + uv) */}
+                <MiniBarChart
+                  data={weeklyData}
+                  keys={["pv", "uv"]}
+                  stacked
+                  colors={["#0F0F0D", "#B9A427"]}
+                  height={160}
+                  loading={weeklyLoading}
+                  emptyText="No weekly activity yet"
+                />
               </Card>
 
               {/* Your Tasks */}
-              <Card className="row-span-3 p-3 flex flex-col h-full">
+              <Card className="mt-2 row-span-1 p-2 flex flex-col h-fit">
                 <div className="flex items-center justify-between">
                   <h2 className="font-bold tracking-tight">Your Tasks</h2>
-                  <button aria-label="Add Task" className="h-8 w-8 rounded-full bg-card grid place-items-center hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">＋</button>
+                  <button aria-label="Add Task" className="h-7 w-7 rounded-full bg-card grid place-items-center hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"><text className="font-black">＋</text></button>
                 </div>
                 <div className="mt-2 space-y-1 flex-1 overflow-hidden">
                   {[1, 2, 3].map((i) => (
                     <div key={i} className="flex items-center gap-2 p-3 rounded-xl border border-gray-100 hover:bg-gray-50 focus-within:ring-2 focus-within:ring-accent">
                       <div className="h-8 w-8 rounded-full bg-card grid place-items-center text-lg task-icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" width="18" height="16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                           <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                           <path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
@@ -253,12 +277,13 @@ export default function HomePage() {
                         <div className="font-semibold">Project Update</div>
                         <div className="text-xs text-gray-500">October {i}, 2025</div>
                       </div>
-                      <input aria-label="Mark task done" type="checkbox" className="h-4 w-4 rounded border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
+                      <input aria-label="Mark task done" type="checkbox" className="h-3 w-4 rounded border-gray-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent" />
                     </div>
                   ))}
                 </div>
-                
-                <button className="w-full mb-3 py-3 rounded-xl bg-accent on-accent font-semibold hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent">See All</button>
+                <button className="w-full mb-3 py-3 rounded-xl bg-accent on-accent font-semibold hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-accent">
+                  See All
+                </button>
               </Card>
             </section>
           </main>
@@ -267,16 +292,16 @@ export default function HomePage() {
 
       {/* Mobile theme toggle */}
       <div className="block lg:hidden fixed bottom-4 left-4 z-50">
-        <div className={`theme-switch ${theme === 'dark' ? 'dark' : ''}`} role="group" aria-label="Theme toggle">
+        <div className={`theme-switch ${theme === "dark" ? "dark" : ""}`} role="group" aria-label="Theme toggle">
           <button
             type="button"
             className="sun-button"
-            aria-pressed={theme === 'light'}
+            aria-pressed={theme === "light"}
             aria-label="Switch to light mode"
-            onClick={() => toggleTheme('light')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleTheme('light'); }}
+            onClick={() => toggleTheme("light")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleTheme("light"); }}
           >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <svg viewBox="0 0 18 18" width="18" height="18" fill="none" aria-hidden="true">
               <circle cx="12" cy="12" r="4" fill="currentColor" />
               <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
                 <path d="M12 2v2" />
@@ -296,12 +321,12 @@ export default function HomePage() {
           <button
             type="button"
             className="moon-button"
-            aria-pressed={theme === 'dark'}
+            aria-pressed={theme === "dark"}
             aria-label="Switch to dark mode"
-            onClick={() => toggleTheme('dark')}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleTheme('dark'); }}
+            onClick={() => toggleTheme("dark")}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") toggleTheme("dark"); }}
           >
-            <svg className="moon moon-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+            <svg className="moon moon-icon" viewBox="0 0 18 18" width="18" height="18" aria-hidden="true">
               <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
             </svg>
           </button>
