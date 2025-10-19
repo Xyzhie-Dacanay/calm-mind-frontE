@@ -3,6 +3,8 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 
+
+// ✅ Mantine v7 style imports
 import "@mantine/core/styles.css";
 import "@mantine/dates/styles.css";
 import { MantineProvider } from "@mantine/core";
