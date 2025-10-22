@@ -15,7 +15,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const { login: storeLogin, loading: storeLoading, error: storeError } = useAuthStore();
+  const { login: _storeLogin, loading: _storeLoading, error: _storeError } = useAuthStore();
 
   const handleLogin = async (e) => {
   e.preventDefault();
@@ -24,7 +24,7 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
 
-    const response = await fetch("http://localhost:5000/api/users/login", {
+    const response = await fetch("http://localhost:4000/api/users/login", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -50,7 +50,13 @@ export default function LoginScreen() {
       console.log("Token in localStorage:", localStorage.getItem("token"));
       console.log("User in localStorage:", localStorage.getItem("user"));
 
-    navigate("/home");
+    // Check if user has completed profile setup
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user.isProfileComplete) {
+      navigate("/get-started");
+    } else {
+      navigate("/home");
+    }
   } catch (err) {
     console.error("Login error:", err);
     setError("Login failed.");

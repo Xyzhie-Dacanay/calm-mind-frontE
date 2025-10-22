@@ -1,18 +1,18 @@
 // src/components/Sidebar.jsx
-import React from "react";
+import React, { useContext } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { ThemeContext } from "../context/ThemeContext";
 
 const primaryMenu = [
   { label: "Home", icon: "home", href: "/home" },
   { label: "Task Management", icon: "tasks", href: "/tasks" },
   { label: "Calendar", icon: "calendar", href: "/calendar" },
-  { label: "Chat Bot", icon: "chat", href: "/chatbot" },
+  { label: "ChatBot", icon: "chat", href: "/chatbot" },
   { label: "Analytics", icon: "chart", href: "/analytics" },
 ];
 
 const generalMenu = [
-  { label: "Settings", icon: "settings", href: "#" },
-  { label: "Help", icon: "help", href: "#" },
+  { label: "Settings", icon: "settings", href: "/settings" },
   { label: "Sign out", icon: "logout", href: "#" },
 ];
 
@@ -74,10 +74,9 @@ function Icon({ name, active }) {
 }
 
 export default function Sidebar({
-  theme = "light",
   active,
-  onToggleTheme = () => {},
 }) {
+  const { theme, setTheme } = useContext(ThemeContext);
   const location = useLocation();
   const path = location?.pathname || "/";
   return (
@@ -116,14 +115,34 @@ export default function Sidebar({
         {/* General */}
         <div className="uppercase text-gray-400 text-[11px] px-3 mt-6 mb-2">General</div>
         <ul className="space-y-1">
-          {generalMenu.map((m) => (
-            <li key={m.label}>
-              <a href={m.href} className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 text-gray-700">
-                <Icon name={m.icon} />
-                <span className="truncate">{m.label}</span>
-              </a>
-            </li>
-          ))}
+          {generalMenu.map((m) => {
+            const isActive = path === m.href;
+            return (
+              <li key={m.label}>
+                {m.href.startsWith('#') ? (
+                  <a href={m.href} className={`flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 ${
+                    isActive ? "text-accent font-semibold" : "text-gray-700"
+                  }`}>
+                    <Icon name={m.icon} active={isActive} />
+                    <span className="truncate">{m.label}</span>
+                  </a>
+                ) : (
+                  <Link 
+                    to={m.href} 
+                    className={`relative flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 ${
+                      isActive ? "text-accent font-semibold" : "text-gray-700"
+                    }`}
+                  >
+                    {isActive && (
+                      <span className="absolute -left-4 top-1/2 -translate-y-1/2 h-6 w-1 rounded bg-accent" />
+                    )}
+                    <Icon name={m.icon} active={isActive} />
+                    <span className="truncate">{m.label}</span>
+                  </Link>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </nav>
 
@@ -137,9 +156,9 @@ export default function Sidebar({
               className="sun-button"
               aria-pressed={theme === "light"}
               aria-label="Switch to light mode"
-              onClick={() => onToggleTheme("light")}
+              onClick={() => setTheme("light")}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onToggleTheme("light");
+                if (e.key === "Enter" || e.key === " ") setTheme("light");
               }}
             >
               <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
@@ -166,9 +185,9 @@ export default function Sidebar({
               className="moon-button"
               aria-pressed={theme === "dark"}
               aria-label="Switch to dark mode"
-              onClick={() => onToggleTheme("dark")}
+              onClick={() => setTheme("dark")}
               onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") onToggleTheme("dark");
+                if (e.key === "Enter" || e.key === " ") setTheme("dark");
               }}
             >
               <svg className="moon moon-icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">

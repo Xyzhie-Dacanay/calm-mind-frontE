@@ -1,41 +1,73 @@
 import React from "react";
 
 export default function Card({
-  as: Tag = "div",
+  as: Component = "div",
   className = "",
   hover = true,
+  disableClick = true,   // keep hover-only by default
+  onClick,
   children,
   ...props
 }) {
-  
   const hoverCls = hover
     ? [
         "transform-gpu",
-        "transition-transform",
-        "transition-shadow",
-        "duration-600",                         
-        "ease-[cubic-bezier(.2,.8,.2,1)]",     
-        "hover:-translate-y-1",
-        "hover:scale-[1.01]",
+       
+        "transition-[transform,box-shadow,filter]",
+        "duration-300",            
+        "hover:duration-600",      
+        
+        "ease-[cubic-bezier(.22,1,.36,1)]",
+        
+        "hover:-translate-y-[2px]",
+        "hover:scale-[1.012]",
+     
         "hover:shadow-lg",
-        "active:translate-y-0.5",
+        
+        "hover:brightness-[1.01]",
+       
         "motion-reduce:transition-none",
         "motion-reduce:hover:transform-none",
         "motion-reduce:hover:shadow-none",
+        "motion-reduce:hover:brightness-100",
       ].join(" ")
     : "";
 
+ 
+  const pressCls = disableClick ? "" : "active:translate-y-0.5";
+
+  const classes = [
+    "bg-card rounded-2xl border border-gray-200 shadow-sm",
+    "will-change-transform",
+    hoverCls,
+    pressCls,
+    disableClick ? "cursor-default select-none focus:outline-none" : "",
+    className,
+  ].join(" ");
+
+  const handleClick = React.useCallback(
+    (e) => {
+      if (disableClick) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      onClick?.(e);
+    },
+    [disableClick, onClick]
+  );
+
   return (
-    <Tag
-      className={[
-        "bg-card rounded-2xl border border-gray-200 shadow-sm",
-        "will-change-transform",               
-        hoverCls,
-        className,
-      ].join(" ")}
+    <Component
+      className={classes}
+      tabIndex={disableClick ? -1 : props.tabIndex}
+      aria-disabled={disableClick || undefined}
+      onClick={handleClick}
+      
+      style={{ willChange: "transform, box-shadow" }}
       {...props}
     >
       {children}
-    </Tag>
+    </Component>
   );
 }

@@ -39,7 +39,7 @@ export default function MiniBarChart({
       >
         <div className="h-full flex items-end gap-3">
           {Array.from({ length: 7 }).map((_, i) => (
-            <div key={i} className="w-6 bg-gray-200 rounded" style={{ height: `${30 + (i % 5) * 15} px` }} />
+            <div key={i} className="w-6 bg-gray-200 rounded" style={{ height: `${30 + (i % 5) * 15}px` }} />
           ))}
         </div>
       </div>
@@ -63,11 +63,11 @@ export default function MiniBarChart({
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={data}
-          margin={{ top: 1, right: 1, left: 1, bottom: 1 }}
+          margin={{ top: 2, right: 2, left: 2, bottom: 2 }}
         >
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="name" tickMargin={4} />
-          <YAxis width={32} />
+          <YAxis width={28} />
           <Tooltip />
           {keys.length > 1 && <Legend />}
           {keys.map((k, i) => (
@@ -76,8 +76,8 @@ export default function MiniBarChart({
               dataKey={k}
               stackId={stacked ? "a" : undefined}
               fill={colors[i] || "#8B9A427"}
-              radius={[2, 0, 0, 0]}
-              maxBarSize={32}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={42}
             />
           ))}
         </BarChart>

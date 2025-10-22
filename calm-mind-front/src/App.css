@@ -46,8 +46,8 @@
 /* Theme variables (light + dark). These are tuned to the provided design. */
 :root {
   /* Light theme */
-  --bg: #F6F3E5;        /* page background (cream) */
-  --card: #FFFFFF;      /* card surfaces */
+  --bg: #FCFCFC;        /* page background (cream) */
+  --card: #fffbfb;      /* card surfaces */
   --card-light: #FFFFFF; /* explicit light surface for inverted panels */
   --card-dark: #1F1F1D; /* dark card color used in dark mode */
   --accent: #e7d341;    /* mustard accent */
