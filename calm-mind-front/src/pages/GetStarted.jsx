@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from "axios";
 
 const GetStarted = () => {
   const navigate = useNavigate();
@@ -54,20 +55,23 @@ const GetStarted = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  e.preventDefault();
+  setLoading(true);
 
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      console.log('Form submitted:', formData);
-      // Navigate to the main app after submission
-      navigate('/homepage');
-    } catch (error) {
-      console.error('Error submitting form:', error);
-    } finally {
-      setLoading(false);
+  try {
+    const response = await axios.post("http://localhost:4000/api/get-started", formData);
+
+    if (response.status === 201) {
+      console.log("Saved successfully:", response.data);
+      navigate("/home");
     }
-  };
+  } catch (error) {
+    console.error("Error submitting form:", error.response?.data || error.message);
+    alert("Failed to submit form. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">

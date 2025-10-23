@@ -11,60 +11,25 @@ export default function LoginScreen() {
   const [formAnimation, setFormAnimation] = useState("animate-swap-in-left");
   const [imageAnimation, setImageAnimation] = useState("animate-swap-in-left");
 
-  // Local state for handling errors and loading in the login form
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const { login: _storeLogin, loading: _storeLoading, error: _storeError } = useAuthStore();
+  const { login, loading, error } = useAuthStore();
 
   const handleLogin = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    try {
+      const success = await login(email, password);
 
-  try {
-    setError("");
-    setLoading(true);
-
-    const response = await fetch("http://localhost:4000/api/users/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: email.toLowerCase(),
-        password,
-      }),
-    });
-
-    const data = await response.json();
-    console.log("Login response:", data); // <--- helpful to debug
-
-    if (!response.ok) {
-      setError(data.message || "Login failed.");
-      return;
+      if (success) {
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (user && !user.isProfileComplete) {
+          navigate("/get-started");
+        } else {
+          navigate("/home");
+        }
+      }
+    } catch (err) {
+      console.error("Login error:", err);
     }
-
-    if (data.token) localStorage.setItem("token", data.token);
-    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-
-    // Debugging token
-      console.log("Token in localStorage:", localStorage.getItem("token"));
-      console.log("User in localStorage:", localStorage.getItem("user"));
-
-    // Check if user has completed profile setup
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user.isProfileComplete) {
-      navigate("/get-started");
-    } else {
-      navigate("/home");
-    }
-  } catch (err) {
-    console.error("Login error:", err);
-    setError("Login failed.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const handleGoSignup = () => {
     setFormAnimation("animate-swap-out-left");
