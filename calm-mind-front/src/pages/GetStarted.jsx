@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from "axios";
+import { useGetStartedStore } from "../store/useGetStartedStore";
 
 const GetStarted = () => {
   const navigate = useNavigate();
+  const { submitGetStarted, loading } = useGetStartedStore(); // use store's loading
   const [formData, setFormData] = useState({
     course: '',
     yearLevel: '',
@@ -11,7 +12,6 @@ const GetStarted = () => {
     address: '',
     contactNumber: ''
   });
-  const [loading, setLoading] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
 
   useEffect(() => {
@@ -54,24 +54,11 @@ const GetStarted = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
-  setLoading(true);
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    submitGetStarted(formData, navigate); // call store's submit function
+  };
 
-  try {
-    const response = await axios.post("http://localhost:4000/api/get-started", formData);
-
-    if (response.status === 201) {
-      console.log("Saved successfully:", response.data);
-      navigate("/home");
-    }
-  } catch (error) {
-    console.error("Error submitting form:", error.response?.data || error.message);
-    alert("Failed to submit form. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-gray-50 to-gray-100">
