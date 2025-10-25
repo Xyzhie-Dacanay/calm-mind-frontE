@@ -39,7 +39,7 @@ export default function TaskBoard({
 
               {columnTasks.map((task) => (
                 <TaskCard
-                  key={task.id}
+                  key={task.id || task._id || `${col.status}-${Math.random()}`}
                   task={task}
                   derivedStatus={(t) => col.status} // already grouped by derived status
                   onClick={onCardClick}

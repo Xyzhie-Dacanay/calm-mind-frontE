@@ -5,14 +5,14 @@ import StatusDropdown from "./StatusDropdown";
 export default function TaskCard({
   task,
   derivedStatus,
-  onClick,          // open overview
+  onClick,
   onEdit,
   onDelete,
   onStatusChange,
   completeTask
 }) {
-  const eff = derivedStatus(task);
-  const canQuickActions = eff === "todo" || eff === "in_progress";
+  const statusKey = derivedStatus(task);
+  const canQuickActions = statusKey === "todo" || statusKey === "in_progress";
 
   return (
     <div
@@ -25,7 +25,7 @@ export default function TaskCard({
           <button className="p-1 rounded hover:bg-gray-100" aria-label="Edit" onClick={() => onEdit(task)}>
             <Pencil size={16} />
           </button>
-          <button className="p-1 rounded hover:bg-gray-100" aria-label="Delete" onClick={() => onDelete(task.id)}>
+          <button className="p-1 rounded hover:bg-gray-100" aria-label="Delete" onClick={() => onDelete(task._id)}>
             <Trash2 size={16} />
           </button>
         </div>
@@ -39,20 +39,21 @@ export default function TaskCard({
         </div>
       )}
 
+
       <div className="mt-2 flex items-center justify-between">
         <span className={`inline-block px-2 py-1 text-xs rounded-full
           ${task.priority === "High" ? "bg-red-100 text-red-800" :
             task.priority === "Medium" ? "bg-yellow-100 text-yellow-800" :
-            "bg-green-100 text-green-800"}`}>
+              "bg-green-100 text-green-800"}`}>
           {task.priority}
         </span>
 
-        {/* Notion-style status dropdown (blocked from 'missing' by parent) */}
-        {eff !== "missing" ? (
+        {/* Status dropdown */}
+        {statusKey !== "missing" ? (
           <div onClick={(e) => e.stopPropagation()}>
             <StatusDropdown
               value={task.status}
-              onChange={(s) => onStatusChange(task.id, s)}
+              onChange={(s) => onStatusChange(task._id, s)}
               menuAlign="right"
             />
           </div>
@@ -64,17 +65,17 @@ export default function TaskCard({
       {/* Quick actions */}
       {canQuickActions && (
         <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-          {eff === "todo" && (
+          {statusKey === "todo" && (
             <button
               className="flex items-center gap-1 text-xs px-2 py-1 rounded border hover:bg-gray-50"
-              onClick={() => onStatusChange(task.id, "in_progress")}
+              onClick={() => onStatusChange(task._id, "in_progress")}
             >
               <Play size={14} /> Start
             </button>
           )}
           <button
             className="flex items-center gap-1 text-xs px-2 py-1 rounded border hover:bg-gray-50"
-            onClick={() => completeTask(task.id)}
+            onClick={() => completeTask(task._id)}
           >
             <CheckCircle size={14} /> Mark Done
           </button>

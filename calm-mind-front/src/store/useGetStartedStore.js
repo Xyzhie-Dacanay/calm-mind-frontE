@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import axios from "axios";
+import { useAuthStore } from "../store/authStore";
 
 export const useGetStartedStore = create((set) => ({
   completed: false,
@@ -19,20 +20,27 @@ export const useGetStartedStore = create((set) => ({
   // Setters
   setCompleted: (value) => set({ completed: value }),
   setGetStartedData: (data) =>
-    set((state) => ({
-      getStartedData: { ...state.getStartedData, ...data },
-    })),
-
+    set((state) => ({ getStartedData: { ...state.getStartedData, ...data } })),
   setLoading: (value) => set({ loading: value }),
   setError: (error) => set({ error }),
 
   // Fetching / submission
   submitGetStarted: async (data, navigate) => {
+    const { user } = useAuthStore.getState();
+    if (!user?.id) {
+      alert("User not logged in. Please refresh or login again.");
+      return;
+    }
+
     set({ loading: true, error: null });
+
     try {
+      // Add userId to the payload
+      const payload = { ...data, userId: user.id };
+
       const response = await axios.post(
         "http://localhost:4000/api/get-started",
-        data
+        payload
       );
 
       if (response.status === 201) {

@@ -11,6 +11,9 @@ import {
   Tooltip,
   CartesianGrid,
 } from "recharts";
+import api from "../api/client";
+import { useAuthStore } from "../store/authStore";
+
 
 /* ======================== LLM placeholder ======================== */
 async function getBotResponse(userMessage, context = []) {
@@ -33,68 +36,87 @@ const AMBER = { 500: "#f59e0b", 600: "#d97706" };
 const GRID = "#e5e7eb";
 const TEXT = "#111827";
 
+/* ======================== Component ======================== */
 export default function ChatBotStressBoard({ tasks = [] }) {
-  /* ---------- Chat (localStorage) ---------- */
+  /* ---------- Stress Labels ---------- */
+  const stressLabels = { 1: "Very Low", 2: "Low", 3: "Moderate", 4: "High", 5: "Very High" };
+
+  /* ---------- Chat State ---------- */
   const [messages, setMessages] = useState(() => {
     const saved = localStorage.getItem(LS_MSGS);
     if (saved) return JSON.parse(saved);
     return [
-      { id: "m1", role: "assistant",
+      {
+        id: "m1",
+        role: "assistant",
         text: "Hi! I’m your coach. Use the Stress Log below to send a message — it will save a log and I’ll reply here.",
-        ts: new Date().toISOString() },
+        ts: new Date().toISOString()
+      }
     ];
   });
   const [sending, setSending] = useState(false);
   const listRef = useRef(null);
 
-  useEffect(() => { localStorage.setItem(LS_MSGS, JSON.stringify(messages)); }, [messages]);
-  useEffect(() => { if (listRef.current) listRef.current.scrollTop = listRef.current.scrollHeight; }, [messages, sending]);
+  useEffect(() => {
+    localStorage.setItem(LS_MSGS, JSON.stringify(messages));
+  }, [messages]);
 
   const pushMessage = (role, text) =>
-    setMessages((prev) => [...prev, { id: `${Date.now()}-${role}`, role, text, ts: new Date().toISOString() }]);
+    setMessages(prev => [...prev, { id: `${Date.now()}-${role}`, role, text, ts: new Date().toISOString() }]);
 
   const sendThroughBot = async (content) => {
-    setSending(true); pushMessage("user", content);
-    try { pushMessage("assistant", await getBotResponse(content, messages)); }
-    catch { pushMessage("assistant", "Sorry—something went wrong. Please try again."); }
-    finally { setSending(false); }
-  };
+  // Get the latest user from Zustand store
+  const { user } = useAuthStore.getState();
+  if (!user?.id) {
+    pushMessage("assistant", "User not logged in. Please refresh or login again.");
+    return;
+  }
 
-  /* ---------- Stress logging (localStorage) ---------- */
-  const [stress, setStress] = useState(3); // 1–5
+  setSending(true);
+  pushMessage("user", content);
+
+  try {
+    // Send userId along with the message to backend
+    const response = await api.post("/coach/chat", {
+      user_id: user.id,
+      message: content,
+    });
+
+    pushMessage("assistant", response.data.response || "Sorry, no reply received.");
+  } catch (error) {
+    console.error("Error sending message:", error.response?.data || error.message);
+    pushMessage("assistant", "Sorry—something went wrong. Please try again.");
+  } finally {
+    setSending(false);
+  }
+};
+
+  /* ---------- Stress Logging ---------- */
+  const [stress, setStress] = useState(3);
   const [tags, setTags] = useState([]);
   const [note, setNote] = useState("");
+  const [addingTag, setAddingTag] = useState(false);
+  const [newTag, setNewTag] = useState("");
 
-  // default quick tags (removed "Others")
   const baseTagOptions = ["Workload", "Deadline", "Group", "Project", "Personal"];
-
-  // NEW: custom tags (persisted)
   const [customTags, setCustomTags] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_CUSTOM_TAGS) || "[]"); } catch { return []; }
   });
   useEffect(() => { localStorage.setItem(LS_CUSTOM_TAGS, JSON.stringify(customTags)); }, [customTags]);
-
   const tagOptions = [...baseTagOptions, ...customTags];
 
-  const [addingTag, setAddingTag] = useState(false);
-  const [newTag, setNewTag] = useState("");
-
-  const addCustomTag = () => {
-    const t = newTag.trim().slice(0, 24);
+  const addCustomTag = (tagText = newTag) => {
+    const t = tagText.trim().slice(0, 24);
     if (!t) return;
-    if (tagOptions.some((x) => x.toLowerCase() === t.toLowerCase())) {
-      // if exists, just select it
-      setTags((prev) => (prev.includes(t) ? prev : [...prev, t]));
-    } else {
-      const next = [...customTags, t];
-      setCustomTags(next);
-      setTags((prev) => (prev.includes(t) ? prev : [...prev, t]));
+    if (!tagOptions.some(x => x.toLowerCase() === t.toLowerCase())) {
+      setCustomTags([...customTags, t]);
     }
-    setNewTag(""); setAddingTag(false);
+    if (!tags.includes(t)) setTags([...tags, t]);
+    setNewTag("");
+    setAddingTag(false);
   };
 
-  const toggleTag = (t) =>
-    setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleTag = (t) => setTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t]);
 
   const [logs, setLogs] = useState(() => {
     const saved = localStorage.getItem(LS_LOGS);
@@ -104,20 +126,23 @@ export default function ChatBotStressBoard({ tasks = [] }) {
 
   const addLog = (extraNote) => {
     const now = new Date().toISOString();
-    const todayKey = toDateKey(now);
-    const tasksToday = tasks.filter((t) => t?.dueDate && dayjs(t.dueDate).isSame(todayKey, "day")).length;
-    const log = { id: `log-${Date.now()}`, ts: now, stress, tags, note: (extraNote ?? note) || "", tasksCount: tasksToday };
-    setLogs((prev) => [log, ...prev]);
+    const todayKey = dayjs(now).format("YYYY-MM-DD");
+    const tasksToday = tasks.filter(t => t?.dueDate && dayjs(t.dueDate).isSame(todayKey, "day")).length;
+    const log = { id: `log-${Date.now()}`, ts: now, stress, tags, note: extraNote || note, tasksCount: tasksToday };
+    setLogs(prev => [log, ...prev]);
   };
 
   const handleSaveAndAsk = async () => {
     const summary = `Stress: ${stress}/5; Tags: ${tags.length ? tags.join(", ") : "—"}${note ? `; Note: ${note}` : ""}`;
-    addLog(); await sendThroughBot(summary); setNote("");
+    addLog();
+    await sendThroughBot(summary);
+    setNote("");
   };
 
-  const stressLabel = useMemo(() => ({ 1:"Very Low",2:"Low",3:"Moderate",4:"High",5:"Very High" }[stress]), [stress]);
+  /* ---------- Computed Values ---------- */
+  const stressLabel = useMemo(() => stressLabels[stress], [stress]);
 
-  /* ---------- Insights & (reactive) chart data ---------- */
+  /* ---------- Chart Data ---------- */
   const today = dayjs();
   const dailyMap = new Map(), weeklyMap = new Map(), monthlyMap = new Map(), yearlyMap = new Map();
 
@@ -149,7 +174,7 @@ export default function ChatBotStressBoard({ tasks = [] }) {
   const recentLogs = logs.slice(0, 12);
   const dueToday = useMemo(() => tasks.filter((t) => (t?.dueDate ? dayjs(t.dueDate).isSame(today, "day") : false)), [tasks, today]);
 
-  /* ---------- Recent Logs: Edit/Delete mode ---------- */
+  /* ---------- Recent Logs Edit/Delete ---------- */
   const [editMode, setEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const toggleSelect = (id) => setSelectedIds((prev) => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next; });
@@ -157,7 +182,7 @@ export default function ChatBotStressBoard({ tasks = [] }) {
   const deleteSelected = () => { if (selectedIds.size === 0) return; setLogs((prev) => prev.filter((l) => !selectedIds.has(l.id))); exitEdit(); };
   const deleteAll = () => { setLogs([]); exitEdit(); };
 
-  /* ---------- Charts: dropdown view + persistence (ALL LINE) ---------- */
+  /* ---------- Chart View ---------- */
   const chartViews = [
     { key: "daily",   label: "Daily Average (7d)",   data: dailySeries,   color: AMBER[500] },
     { key: "weekly",  label: "Weekly Average (8w)",  data: weeklySeries,  color: AMBER[600] },
@@ -167,6 +192,7 @@ export default function ChatBotStressBoard({ tasks = [] }) {
   const [chartView, setChartView] = useState(() => localStorage.getItem(LS_CHART_VIEW) || "daily");
   useEffect(() => { localStorage.setItem(LS_CHART_VIEW, chartView); }, [chartView]);
   const activeView = chartViews.find((v) => v.key === chartView) || chartViews[0];
+
 
   /* ======================== UI ======================== */
   return (
