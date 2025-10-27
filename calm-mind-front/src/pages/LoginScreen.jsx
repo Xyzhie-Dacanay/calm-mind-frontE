@@ -16,14 +16,15 @@ export default function LoginScreen() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const success = await login(email, password);
+      // ✅ login now returns the full user object from the store
+      const user = await login(email, password);
 
-      if (success) {
-        const user = JSON.parse(localStorage.getItem("user"));
-        if (user && !user.isProfileComplete) {
-          navigate("/get-started");
-        } else {
+      if (user) {
+        // ✅ Navigate based on profileCompleted flag
+        if (user.profileCompleted) {
           navigate("/home");
+        } else {
+          navigate("/get-started");
         }
       }
     } catch (err) {

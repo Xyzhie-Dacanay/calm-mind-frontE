@@ -24,19 +24,23 @@ export const useAuthStore = create(
               password,
             }
           );
+
           const { user, token } = res.data;
 
+          // Save token and user to localStorage
           localStorage.setItem("token", token);
+          localStorage.setItem("user", JSON.stringify(user));
+
           set({ user, token, loading: false });
 
-          return true;
+          return user; // ✅ Return full user object
         } catch (err) {
           console.error("Signup failed:", err.response?.data || err.message);
           set({
             error: err.response?.data?.message || "Signup failed",
             loading: false,
           });
-          return false;
+          return null;
         }
       },
 
@@ -49,25 +53,30 @@ export const useAuthStore = create(
             email,
             password,
           });
+
           const { user, token } = res.data;
 
+          // Save token and user to localStorage
           localStorage.setItem("token", token);
+          localStorage.setItem("user", JSON.stringify(user));
+
           set({ user, token, loading: false });
 
-          return true;
+          return user; // ✅ Return full user object for LoginScreen navigation
         } catch (err) {
           console.error("Login failed:", err.response?.data || err.message);
           set({
             error: err.response?.data?.message || "Login failed",
             loading: false,
           });
-          return false;
+          return null;
         }
       },
 
       // Logout
       logout: () => {
         localStorage.removeItem("token");
+        localStorage.removeItem("user");
         set({ user: null, token: null });
       },
     }),
