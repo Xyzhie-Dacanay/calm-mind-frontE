@@ -16,11 +16,14 @@ export const useAuthStore = create(
         try {
           set({ loading: true, error: null });
 
-          const res = await api.post("http://localhost:4000/api/users/register", {
-            name,
-            email,
-            password,
-          });
+          const res = await api.post(
+            "http://localhost:4000/api/users/register",
+            {
+              name,
+              email,
+              password,
+            }
+          );
           const { user, token } = res.data;
 
           localStorage.setItem("token", token);
@@ -42,7 +45,10 @@ export const useAuthStore = create(
         try {
           set({ loading: true, error: null });
 
-          const res = await api.post("http://localhost:4000/api/users/login", { email, password });
+          const res = await api.post("http://localhost:4000/api/users/login", {
+            email,
+            password,
+          });
           const { user, token } = res.data;
 
           localStorage.setItem("token", token);
