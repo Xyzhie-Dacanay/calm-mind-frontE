@@ -16,11 +16,14 @@ export default function LoginScreen() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      // ✅ login now returns the full user object from the store
+      // ✅ login returns user object from the store
       const user = await login(email, password);
 
       if (user) {
-        // ✅ Navigate based on profileCompleted flag
+        // ✅ store userId in localStorage (needed by Settings.jsx)
+        localStorage.setItem("userId", user.id);
+
+        // ✅ navigate based on profileCompleted
         if (user.profileCompleted) {
           navigate("/home");
         } else {
@@ -93,7 +96,7 @@ export default function LoginScreen() {
               />
             </div>
 
-            {/* Error and loading states */}
+            {/* Error and loading */}
             {error && <p className="text-red-500 text-sm">{error}</p>}
             {loading && <p className="text-gray-500 text-sm">Logging in...</p>}
 
@@ -114,7 +117,7 @@ export default function LoginScreen() {
               </label>
             </div>
 
-            {/* Submit button */}
+            {/* Submit */}
             <button
               type="submit"
               className="w-full p-3 bg-black text-white rounded-md hover:bg-gray-800 transition"
@@ -123,7 +126,7 @@ export default function LoginScreen() {
             </button>
           </form>
 
-          {/* Signup + Forgot Password */}
+          {/* Signup + Forgot */}
           <div className="mt-6 text-center text-sm">
             <p className="text-gray-600">
               Don’t have an account?
