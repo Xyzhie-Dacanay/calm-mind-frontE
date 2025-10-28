@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, MoreVertical, Kanban, List, Table, X } from "lucide-react";
+import { Plus, MoreVertical } from "lucide-react";
 import Sidebar from "../components/Sidebar";
 import TaskBoard from "../components/TaskBoard";
 import TaskListView from "../components/TaskListView";
@@ -7,22 +7,26 @@ import TaskTableView from "../components/TaskTableView";
 import TaskForm from "../components/TaskForm";
 import TaskOverview from "../components/TaskOverview";
 import KebabMenu from "../components/KebabMenu";
+import axios from "axios";
+import { useAuthStore } from "../store/authStore";
+import api from "../api/client";
 
-/**
- * Task = {
- *   id: string,
- *   title: string,
- *   status: 'todo' | 'in_progress' | 'missing' | 'completed',
- *   priority: 'Low' | 'Medium' | 'High',
- *   startDate: 'YYYY-MM-DD',
- *   dueDate: 'YYYY-MM-DD',
- *   description: string
- * }
- */
+// ===== Task type =====
+// Task = {
+//   id: string,
+//   title: string,
+//   status: 'todo' | 'in_progress' | 'missing' | 'completed',
+//   priority: 'Low' | 'Medium' | 'High',
+//   startDate: 'YYYY-MM-DD',
+//   dueDate: 'YYYY-MM-DD',
+//   description: string
+// }
 
-const STORAGE_KEY = "tasks";
+const TaskManagement = ({ onTaskUpdate }) => {
+  const { user, token, logout } = useAuthStore();
 
-export default function TaskManagement() {
+  const userId = user?.user_id || "test_user";
+
   // ===== Theme =====
   const [theme, setTheme] = useState(() => {
     try {
@@ -35,7 +39,7 @@ export default function TaskManagement() {
   useEffect(() => {
     try {
       localStorage.setItem("cm-theme", theme);
-    } catch { }
+    } catch {}
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("cm-dark", theme === "dark");
     }
@@ -47,28 +51,58 @@ export default function TaskManagement() {
     );
   };
 
-  // View
-  const [view, setView] = useState("board");
+  // ===== View =====
+  const [view, setView] = useState("kanban");
 
-  // ===== Tick so "Missing" recomputes after midnight without reload =====
+  // ===== Tick so "Overdue" recomputes after midnight without reload =====
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
-    const id = setInterval(() => setNow(Date.now()), 60_000);
+    const id = setInterval(() => setNow(Date.now()), 60_000); // 1 min
     return () => clearInterval(id);
   }, []);
 
-  // ===== Tasks (persist) =====
-  const [tasks, setTasks] = useState(() => {
-    try {
-      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      return Array.isArray(stored) ? stored : [];
-    } catch { return []; }
-  });
+  // ===== Tasks (fetch from backend) =====
+  const [tasks, setTasks] = useState([]);
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch {}
-  }, [tasks]);
+    const fetchTasks = async () => {
+      if (!user || !token) return;
 
-  // ===== Date helpers & derived status (auto Missing) =====
+      try {
+        const res = await api.get("/tasks", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: { user_id: userId },
+        });
+
+        // Use response data, not local tasks state
+        const mappedTasks = res.data.map((t) => ({
+          _id: t._id,
+          title: t.title,
+          description: t.description || "",
+          priority: t.priority || "Low",
+          startDate: t.start_date
+            ? new Date(t.start_date).toISOString().split("T")[0]
+            : "-",
+          dueDate: t.due_date
+            ? new Date(t.due_date).toISOString().split("T")[0]
+            : "-",
+          status: t.status || "todo",
+          subtasks: t.subtasks || [],
+        }));
+        setTasks(mappedTasks);
+      } catch (err) {
+        console.error("❌ Error fetching tasks:", err);
+        console.log("Fetched tasks:", res.data);
+      }
+    };
+
+    fetchTasks();
+  }, [user, token]);
+
+  const startTask = (taskId) => {
+    updateTaskStatus(taskId, "in_progress");
+  };
+
+  // ===== Date helpers & derived status (auto Overdue) =====
   const startOfTodayTS = useMemo(() => {
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
@@ -84,29 +118,30 @@ export default function TaskManagement() {
   // ===== Derived status mapping (matches column keys) =====
   const deriveStatus = (task) => {
     if (task.status === "completed") return "completed";
-    if (isPast(task.dueDate)) return "missing";
+    if (isPast(task.dueDate)) return "missing"; // <-- use dueDate
+    if (task.status === "todo" || task.status === "Pending") return "todo";
     return task.status;
   };
-
 
   // ===== tasksByStatus (for Kanban) =====
   const tasksByStatus = useMemo(() => {
     const map = { todo: [], in_progress: [], missing: [], completed: [] };
-    tasks.forEach((t) => map[deriveStatus(t)].push(t));
+    tasks.forEach((t) => {
+      const statusKey = deriveStatus(t);
+      if (map[statusKey]) map[statusKey].push(t);
+    });
     return map;
-  }, [tasks, deriveStatus]);
+  }, [tasks]);
 
-  // ===== Add/Edit Form =====
+  // ===== Add/Edit Form with Subtasks =====
   const [showForm, setShowForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [formError, setFormError] = useState("");
   const [formData, setFormData] = useState({
     title: "",
-    status: "todo",
-    priority: "Medium",
-    startDate: "",
-    dueDate: "",
-    description: "",
+    status: "",
+    due_date: "",
+    subtasks: [],
   });
 
   const resetForm = () => {
@@ -114,11 +149,9 @@ export default function TaskManagement() {
     setFormError("");
     setFormData({
       title: "",
-      status: "todo",
-      priority: "Medium",
-      startDate: "",
-      dueDate: "",
-      description: "",
+      status: "Pending",
+      due_date: "",
+      subtasks: [],
     });
   };
 
@@ -132,138 +165,206 @@ export default function TaskManagement() {
 
   const addTask = async () => {
     if (!validate()) return;
-    const newTask = {
-      id: crypto?.randomUUID?.() ?? Date.now().toString(),
-      title: formData.title.trim(),
-      // block manual 'missing', map "done" dropdown to 'completed'
-      status: formData.status === "missing" ? "todo" : formData.status,
-      priority: formData.priority,
-      startDate: formData.startDate || "",
-      dueDate: formData.dueDate || "",
-      description: formData.description || "",
-    };
-    setTasks((prev) => [...prev, newTask]);
-    setShowForm(false);
-    resetForm();
+
+    try {
+      console.log("🟡 Submitting task data:", formData);
+
+      const now = new Date(); // current date-time
+      const startDateISO = now.toISOString(); // ISO format for backend
+
+      const res = await axios.post(
+        "http://localhost:4000/api/tasks",
+        {
+          user_id: userId,
+          title: formData.title.trim(),
+          status: formData.status,
+          due_date: formData.due_date,
+          start_date: new Date().toISOString(), // <-- send ISO string
+          subtasks: formData.subtasks || [],
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Map backend fields to frontend-friendly fields
+      const newTask = {
+        _id: res.data.task._id,
+        title: res.data.task.title,
+        description: res.data.task.description,
+        priority: res.data.task.priority || "Low",
+        startDate: res.data.task.start_date
+          ? new Date(res.data.task.start_date).toISOString().split("T")[0]
+          : null,
+        dueDate: res.data.task.due_date
+          ? new Date(res.data.task.due_date).toISOString().split("T")[0]
+          : null,
+        status: res.data.task.status,
+        subtasks: res.data.task.subtasks || [],
+      };
+
+      setTasks((prev) => [...prev, newTask]);
+      setShowForm(false);
+      resetForm();
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error(
+        "❌ Task create error:",
+        error.response?.data || error.message
+      );
+      setFormError(error.response?.data?.message || "Failed to create task.");
+    }
   };
 
-
-
   const startEdit = (task) => {
-    setEditingTaskId(task.id);
+    setEditingTaskId(task._id);
     setFormError("");
     setFormData({
       title: task.title,
       status: task.status,
-      priority: task.priority,
-      startDate: task.startDate,
-      dueDate: task.dueDate,
-      description: task.description,
+      due_date: task.due_date.split("T")[0],
+      subtasks: task.subtasks || [],
     });
     setShowForm(true);
   };
 
   const saveEdit = async () => {
     if (!validate()) return;
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === editingTaskId
-          ? {
-              ...t,
-              title: formData.title.trim(),
-              status: formData.status === "missing" ? t.status : formData.status,
-              priority: formData.priority,
-              startDate: formData.startDate || "",
-              dueDate: formData.dueDate || "",
-              description: formData.description || "",
-            }
-          : t
-      )
-    );
-    setShowForm(false);
-    resetForm();
+    try {
+      const res = await axios.put(
+        `http://localhost:4000/api/tasks/${editingTaskId}/reschedule`, // <--- fixed
+        { due_date: formData.due_date, subtasks: formData.subtasks },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === editingTaskId
+            ? {
+                ...t,
+                title: formData.title.trim(),
+                due_date: res.data.task.due_date,
+                status: res.data.task.status,
+                subtasks: res.data.task.subtasks,
+              }
+            : t
+        )
+      );
+      setShowForm(false);
+      resetForm();
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error("Task edit error:", error);
+      setFormError("Failed to edit task.");
+    }
   };
 
-  // ===== Status transitions (block manual "missing") =====
-  const updateTaskStatus = (taskId, newStatus) => {
-    if (newStatus === "missing") return;
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
+  // ===== Split Task =====
+  const splitTask = async (taskId) => {
+    const task = tasks.find((t) => t._id === taskId);
+    if (!task) return;
+    const subtasks =
+      prompt("Enter subtask titles (comma-separated):")
+        ?.split(",")
+        .map((title) => ({ title: title.trim(), completed: false })) || [];
+    if (subtasks.length === 0) return;
+    try {
+      const res = await axios.post(
+        `http://localhost:4000/api/tasks/${taskId}/split`,
+        { subtasks },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setTasks((prev) =>
+        prev.map((t) =>
+          t._id === taskId ? { ...t, subtasks: res.data.task.subtasks } : t
+        )
+      );
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error("Task split error:", error);
+    }
   };
+
+  // ===== Status transitions =====
+  const updateTaskStatus = async (taskId, newStatus) => {
+    if (newStatus === "Overdue") return;
+
+    try {
+      await axios.put(
+        `http://localhost:4000/api/tasks/${taskId}`, // <-- use this endpoint
+        { status: newStatus },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setTasks((prev) =>
+        prev.map((t) => (t._id === taskId ? { ...t, status: newStatus } : t))
+      );
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error("Task status update error:", error);
+    }
+  };
+
+  // Mark task completed
   const completeTask = (taskId) => updateTaskStatus(taskId, "completed");
 
   const deleteTask = async (taskId) => {
     if (!window.confirm("Delete this task? This cannot be undone.")) return;
     try {
       await axios.delete(`http://localhost:4000/api/tasks/${taskId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       setTasks((prev) => prev.filter((t) => t._id !== taskId));
       if (onTaskUpdate) onTaskUpdate();
     } catch (error) {
-      console.error('Task delete error:', error);
+      console.error("Task delete error:", error);
     }
   };
 
   const deleteAll = async () => {
     if (!window.confirm("Delete ALL tasks? This cannot be undone.")) return;
     try {
-      await axios.delete(`http://localhost:4000/api/tasks?user_id=${user?.user_id || 'test_user'}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(
+        `http://localhost:4000/api/tasks?user_id=${
+          user?.user_id || "test_user"
+        }`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       setTasks([]);
       if (onTaskUpdate) onTaskUpdate();
     } catch (error) {
-      console.error('Task delete all error:', error);
+      console.error("Task delete all error:", error);
     }
   };
 
-  // Overview drawer
+  // ===== Overview drawer =====
   const [viewTaskId, setViewTaskId] = useState(null);
-  const openOverview = (task) => setViewTaskId(task.id);
+  const openOverview = (task) => setViewTaskId(task._id);
   const closeOverview = () => setViewTaskId(null);
-  const viewingTask = useMemo(() => tasks.find((t) => t._id === viewTaskId) || null, [tasks, viewTaskId]);
+  const viewingTask = useMemo(
+    () => tasks.find((t) => t._id === viewTaskId) || null,
+    [tasks, viewTaskId]
+  );
 
-  // Columns
+  // ===== Columns =====
   const columns = [
     { title: "To Do", status: "todo" },
     { title: "In Progress", status: "in_progress" },
     { title: "Missing", status: "missing" },
-    { title: "Completed", status: "completed" }
+    { title: "Completed", status: "completed" },
   ];
 
-  /* ---------- Modal helpers ---------- */
-  const closeForm = () => {
-    setShowForm(false);
-    resetForm();
-  };
-
-  // Lock body scroll while modal is open
-  useEffect(() => {
-    if (!showForm) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [showForm]);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === "Escape" && showForm) closeForm();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [showForm]);
-
   return (
-    <div className="min-h-screen h-screen flex">
-      <Sidebar theme={theme} onToggleTheme={toggleTheme} />
-      <div className="flex-1 flex flex-col min-h-0">
-        <main className="flex-1 overflow-hidden">
-          <div className="mx-auto max-w-7xl h-full flex flex-col">
+    <div className="min-h-screen h-screen">
+      <div className="h-full w-full flex">
+        <Sidebar theme={theme} onToggleTheme={toggleTheme} />
+        <main className="flex-2 min-h-2 grid grid-cols-12 px-2 pb-6 pt-2 w-full">
+          <div className="col-span-12">
             {/* Header */}
             <div className="h-[80px] w-full bg-card border border-gray-200 rounded-2xl shadow-sm px-4 flex items-center justify-between">
-              <h1 className="text-3xl font-bold tracking-tight">Task Management</h1>
+              <h1 className="text-3xl font-bold tracking-tight">
+                Task Management
+              </h1>
 
               <div className="flex items-center gap-2">
                 {/* View toggle */}
@@ -277,7 +378,9 @@ export default function TaskManagement() {
                       key={v.key}
                       onClick={() => setView(v.key)}
                       className={`px-3 py-1 text-sm rounded-full transition ${
-                        view === v.key ? "bg-[#b7a42f] text-white" : "hover:bg-gray-100"
+                        view === v.key
+                          ? "bg-[#b7a42f] text-white"
+                          : "hover:bg-gray-100"
                       }`}
                     >
                       {v.label}
@@ -285,42 +388,34 @@ export default function TaskManagement() {
                   ))}
                 </div>
 
-                  <select
-                    className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-[#b7a42f] focus:ring-[#b7a42f] sm:hidden"
-                    value={view}
-                    onChange={(e) => setView(e.target.value)}
-                  >
-                    <option value="board">Board</option>
-                    <option value="list">List</option>
-                    <option value="table">Table</option>
-                  </select>
+                {/* Add (icon) */}
+                <button
+                  onClick={() => {
+                    resetForm();
+                    setShowForm(true);
+                  }}
+                  type="button"
+                  className="flex items-center gap-2 px-3 py-2 rounded-md bg-card border border-gray-200 shadow-sm hover:bg-gray-50 transition"
+                  aria-label="Add Task"
+                >
+                  <Plus size={18} />
+                </button>
 
-                  <button
-                    onClick={() => {
-                      resetForm();
-                      setShowForm(true);
-                    }}
-                    className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50 transition"
-                    aria-label="Add Task"
-                  >
-                    <Plus size={16} />
-                    <span className="hidden sm:inline">Add Task</span>
-                  </button>
-
-                  <button
-                    onClick={() => setShowSidebar(!showSidebar)}
-                    className="flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium shadow-sm hover:bg-gray-50 transition"
-                  >
-                    {showSidebar ? "Hide" : "Show"} Summary
-                  </button>
-
-                  <KebabMenu
-                    triggerClass="rounded-md border border-gray-200 bg-white p-2 shadow-sm hover:bg-gray-50 transition"
-                    triggerIcon={<MoreVertical size={16} className="text-gray-600" />}
-                    items={[{ key: "delete-all", label: "Delete All Tasks", danger: true, onClick: deleteAll }]}
-                  />
-                </div>
-              </Card>
+                {/* 3-dot menu */}
+                <KebabMenu
+                  triggerClass="px-2 py-2 rounded-md bg-card border border-gray-200 shadow-sm hover:bg-gray-50 transition"
+                  triggerIcon={<MoreVertical size={18} />}
+                  items={[
+                    {
+                      key: "delete-all",
+                      label: "Delete All Tasks",
+                      danger: true,
+                      onClick: deleteAll,
+                    },
+                    // future: { key: "export", label: "Export JSON", onClick: exportFn }
+                  ]}
+                />
+              </div>
             </div>
 
             {/* Content */}
@@ -346,6 +441,7 @@ export default function TaskManagement() {
                   onDelete={deleteTask}
                   onStatusChange={updateTaskStatus}
                   completeTask={completeTask}
+                  onStart={startTask}
                 />
               )}
 
@@ -358,6 +454,7 @@ export default function TaskManagement() {
                   onDelete={deleteTask}
                   onStatusChange={updateTaskStatus}
                   completeTask={completeTask}
+                  onStart={startTask}
                 />
               )}
             </div>
@@ -365,68 +462,65 @@ export default function TaskManagement() {
         </main>
       </div>
 
-      {/* Modal TaskForm */}
+      {/* Add/Edit Modal */}
       {showForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label={editingTaskId ? "Edit Task" : "Add Task"}
-        >
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
           <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[1px]"
-            onClick={closeForm}
+            className="absolute inset-0 bg-black/10"
+            onClick={() => {
+              setShowForm(false);
+              resetForm();
+            }}
           />
-          {/* Dialog */}
-          <div
-            className="relative z-10 w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-5 pt-5">
-              <h2 className="text-lg font-semibold">
-                {editingTaskId ? "Edit Task" : "Add Task"}
-              </h2>
+          <div className="relative rounded-xl w-[920px] shadow-lg border border-gray-200 bg-white overflow-hidden">
+            <div className="px-6 py-3 border-b border-gray-100 flex items-center justify-between bg-[#f5eed6]">
+              <h3 className="text-lg font-semibold">
+                {editingTaskId ? "Edit Task" : "Add New Task"}
+              </h3>
               <button
-                className="p-2 rounded-md hover:bg-gray-100"
-                onClick={closeForm}
-                aria-label="Close"
+                className="text-gray-500"
+                onClick={() => {
+                  setShowForm(false);
+                  resetForm();
+                }}
               >
-                <X size={18} />
+                ✕
               </button>
             </div>
-            <div className="px-1 pb-5">
-              <TaskForm
-                data={formData}
-                setData={setFormData}
-                error={formError}
-                isEditing={Boolean(editingTaskId)}
-                onSubmit={editingTaskId ? saveEdit : addTask}
-                onCancel={closeForm}
-              />
-            </div>
+
+            <TaskForm
+              data={formData}
+              setData={setFormData}
+              error={formError}
+              onSubmit={editingTaskId ? saveEdit : addTask}
+              onCancel={() => {
+                setShowForm(false);
+                resetForm();
+              }}
+              isEditing={!!editingTaskId}
+            />
           </div>
         </div>
       )}
 
-      {viewTaskId && (
+      {/* Overview Drawer */}
+      {viewingTask && (
         <TaskOverview
           task={viewingTask}
+          derivedStatus={deriveStatus(viewingTask)}
           onClose={closeOverview}
-          onEdit={() => startEdit(viewingTask)}
-          onDelete={() => {
-            deleteTask(viewingTask.id);
+          onEdit={(t) => {
             closeOverview();
+            startEdit(t);
           }}
-          onStatusChange={(status) => updateTaskStatus(viewingTask.id, status)}
-          completeTask={() => {
-            completeTask(viewingTask.id);
+          onDelete={(id) => {
             closeOverview();
+            deleteTask(id);
           }}
-          deriveStatus={deriveStatus}
-          taskStress={taskStresses[viewingTask.id] || 0}
+          onStatusChange={(id, s) => updateTaskStatus(id, s)}
         />
       )}
     </div>
   );
-}
+};
+export default TaskManagement;

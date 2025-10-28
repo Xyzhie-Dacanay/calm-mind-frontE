@@ -1,3 +1,4 @@
+// src/components/Sidebar.jsx
 import React, { useContext } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ThemeContext } from "../context/ThemeContext";
@@ -160,12 +161,17 @@ export default function Sidebar({ active }) {
         <ul className="space-y-1">
           {generalMenu.map((m) => {
             const isActive = path === m.href;
-            return (
-              <li key={m.label}>
-                {m.href.startsWith('#') ? (
-                  <a href={m.href} className={`flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 ${
-                    isActive ? "text-accent font-semibold" : "text-gray-700"
-                  }`}>
+
+            // Handle logout click
+            if (m.label === "Sign out") {
+              return (
+                <li key={m.label}>
+                  <button
+                    onClick={handleLogout}
+                    className={`flex w-full items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 ${
+                      isActive ? "text-accent font-semibold" : "text-gray-700"
+                    }`}
+                  >
                     <Icon name={m.icon} active={isActive} />
                     <span className="truncate">{m.label}</span>
                   </button>
@@ -232,10 +238,13 @@ export default function Sidebar({ active }) {
               </svg>
             </button>
 
-           
-            <button type="button" className="knob-button" aria-hidden="true" tabIndex={-1} />
+            <button
+              type="button"
+              className="knob-button"
+              aria-hidden="true"
+              tabIndex={-1}
+            />
 
-            
             <button
               type="button"
               className="moon-button"

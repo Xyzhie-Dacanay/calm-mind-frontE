@@ -1,79 +1,113 @@
-import React, { useEffect, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
-import StatusDropdown from "./StatusDropdown";
+import React from "react";
 
 export default function TaskTableView({
   tasks = [],
   deriveStatus,
-  onRowClick,
+  onStart,
+  onComplete,
   onStatusChange,
   onEdit,
-  onDelete
+  onDelete,
 }) {
-  const rows = tasks.map((t) => ({ ...t, eff: deriveStatus(t) }));
+  // Add derived status
+  const rows = tasks.map((t) => ({
+    ...t,
+    eff: deriveStatus(t),
+    // Format dates to YYYY-MM-DD if they exist
+    startDate: t.startDate ? new Date(t.startDate).toLocaleDateString() : "-",
+    dueDate: t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "-",
+  }));
+
+  const statusLabel = {
+    todo: "To Do",
+    in_progress: "In Progress",
+    completed: "Completed",
+  };
 
   return (
-    <div className="overflow-x-auto bg-white border rounded-xl">
+    <div className="overflow-x-auto bg-white border rounded-xl shadow-sm">
       <table className="min-w-full text-sm">
         <thead className="text-left bg-gray-50">
           <tr>
-            <th className="px-4 py-3">Title</th>
-            <th className="px-4 py-3">Priority</th>
-            <th className="px-4 py-3">Start</th>
-            <th className="px-4 py-3">Due</th>
-            <th className="px-4 py-3">Status</th>
-            <th className="px-4 py-3">Actions</th>
+            {["Title", "Priority", "Start", "Due", "Status", "Actions"].map(
+              (header) => (
+                <th key={header} className="px-4 py-3">
+                  {header}
+                </th>
+              )
+            )}
           </tr>
         </thead>
         <tbody>
-          {rows.map((t) => (
-            <tr key={t.id} className="border-t">
-              <td className="px-4 py-3">{t.title}</td>
-              <td className="px-4 py-3">{t.priority}</td>
-              <td className="px-4 py-3">{t.startDate || "-"}</td>
-              <td className="px-4 py-3">{t.dueDate || "-"}</td>
-              <td className="px-4 py-3 capitalize">
-                {t.eff === "in_progress" ? "In Progress" : t.eff}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex flex-wrap gap-2">
-                  {t.eff === "todo" ? (
-                    <>
-                      <button className="text-xs px-2 py-1 rounded border hover:bg-gray-50" onClick={() => onStart(t.id)}>
-                        Start
-                      </button>
-                      <label className="inline-flex items-center gap-2 text-xs">
-                        <input type="checkbox" onChange={(e) => e.target.checked && onComplete(t.id)} className="h-4 w-4" />
-                        Completed
-                      </label>
-                    </>
-                  ) : (
-                    ["todo", "in_progress", "completed"]
-                      .filter((s) => s !== t.eff)
-                      .map((s) => (
+          {rows.length > 0 ? (
+            rows.map((t, index) => (
+              <tr
+                key={`${t._id}-${index}`}
+                className="border-t hover:bg-gray-50"
+              >
+                <td className="px-4 py-3">{t.title}</td>
+                <td className="px-4 py-3">{t.priority}</td>
+                <td className="px-4 py-3">{t.startDate}</td>
+                <td className="px-4 py-3">{t.dueDate}</td>
+                <td className="px-4 py-3 capitalize">
+                  {statusLabel[t.eff] || t.eff}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-wrap gap-2">
+                    {t.eff === "todo" ? (
+                      <React.Fragment key={`todo-actions-${t._id}-${index}`}>
                         <button
-                          key={s}
-                          className="text-xs px-2 py-1 rounded border hover:bg-gray-50"
-                          onClick={() => onStatusChange(t.id, s)}
+                          className="text-xs px-2 py-1 rounded border hover:bg-gray-100"
+                          onClick={() => onStart(t._id)}
                         >
-                          Move to {s === "todo" ? "To Do" : s === "in_progress" ? "In Progress" : "Completed"}
+                          Start
                         </button>
-                      ))
-                  )}
+                        <label className="inline-flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            onChange={(e) =>
+                              e.target.checked && onComplete(t._id)
+                            }
+                          />
+                          Completed
+                        </label>
+                      </React.Fragment>
+                    ) : (
+                      ["todo", "in_progress", "completed"]
+                        .filter((s) => s !== t.eff)
+                        .map((s) => (
+                          <button
+                            key={`move-${t._id}-${s}-${index}`}
+                            className="text-xs px-2 py-1 rounded border hover:bg-gray-100"
+                            onClick={() => onStatusChange(t._id, s)}
+                          >
+                            Move to {statusLabel[s]}
+                          </button>
+                        ))
+                    )}
 
-                  <button className="text-xs px-2 py-1 rounded border hover:bg-gray-50" onClick={() => onEdit(t)}>
-                    Edit
-                  </button>
-                  <button className="text-xs px-2 py-1 rounded border hover:bg-gray-50" onClick={() => onDelete(t.id)}>
-                    Delete
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
-          {rows.length === 0 && (
+                    <button
+                      key={`edit-${t._id}-${index}`}
+                      className="text-xs px-2 py-1 rounded border hover:bg-gray-100"
+                      onClick={() => onEdit(t)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      key={`delete-${t._id}-${index}`}
+                      className="text-xs px-2 py-1 rounded border hover:bg-red-100 text-red-600"
+                      onClick={() => onDelete(t._id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : (
             <tr>
-              <td className="px-4 py-6 text-gray-500" colSpan={6}>
+              <td className="px-4 py-6 text-gray-500 text-center" colSpan={6}>
                 No tasks yet.
               </td>
             </tr>

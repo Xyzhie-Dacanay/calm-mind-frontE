@@ -22,7 +22,6 @@ const LS_STRESS_A = "cm_stress_logs_v1";
 const LS_STRESS_B = "cm-stress";
 const CHATBOT_ROUTE = "/chatbot";
 const TASKS_ROUTE = "/tasks";
-const CALENDAR_ROUTE = "/calendar";
 
 const AMBER = "#B9A427";
 const GRID = "#e5e7eb";
@@ -186,7 +185,7 @@ export default function HomePage() {
     });
   }, [stressLogs]);
 
-  const hasStressData = stressSeries7d.some(d => d.value > 0);
+  const hasStressData = stressSeries7d.some((d) => d.value > 0);
 
   /* -------------------------------------------------------------------- */
   return (
@@ -242,41 +241,18 @@ export default function HomePage() {
                 </button>
               </Card>
 
-              {/* Mood -> Log stress */}
-              <Card className="col-span-12 md:col-span-6 text-primary p-6 h-full flex flex-col items-center justify-center text-center panel-mood">
-                <div className="text-accent font-black italic text-lg tracking-wide">How are you feeling right now?</div>
-
-                <div className="mt-6">
-                  <button
-                    type="button"
-                    onClick={() => navigate(CHATBOT_ROUTE)}
-                    className="px-6 py-3 rounded-xl bg-accent on-accent font-semibold shadow-sm hover:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    aria-label="Log stress"
-                  >
-                    Log stress
-                  </button>
+              {/* Stress Log */}
+              <Card className="col-span-12 md:col-span-6 text-primary p-6 flex flex-col items-center justify-center text-center">
+                <div className="text-accent font-black italic text-lg tracking-wide">
+                  How are you feeling right now?
                 </div>
-              </Card>
-
-              {/* Calendar (responsive) */}
-              <Card className="pt-3 pr-6 pl-6 col-span-12 md:col-span-7 p-1 h-full flex flex-col">
-                <div className="-mt-2 flex items-center justify-between px-2">
-                  <button aria-label="Prev month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm">‹</button>
-                  <div className="pt-3 font-extrabold text-center text-base">October 2025</div>
-                  <button aria-label="Next month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm">›</button>
-                </div>
-                <div className="grid grid-cols-7 text-center text-[12px] font-medium text-gray-600 mb-0 p-3">
-                  {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-                    <div key={`${d}-${i}`} className="py-1 tracking-wider uppercase">{d}</div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-0 mb-0 text-center text-sm auto-rows-[minmax(36px,1fr)] h-full px-3 pb-3">
-                  {[...Array(3).fill(null), ...Array.from({ length: 31 }, (_, i) => i + 1), ...Array(1).fill(null)].map((d, idx) => (
-                    <div key={idx} className={`flex items-center justify-center rounded-md transition-colors duration-150 ${d === 24 ? "bg-accent on-accent font-extrabold shadow-md" : "hover:bg-card text-gray-700"}`}>
-                      <span className={`${d === 24 ? "text-base" : "text-sm"}`}>{d ?? ""}</span>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate(CHATBOT_ROUTE)}
+                  className="mt-6 px-6 py-3 rounded-xl bg-accent text-white font-semibold"
+                >
+                  Log stress
+                </button>
               </Card>
 
               {/* Notifications */}
@@ -294,10 +270,16 @@ export default function HomePage() {
             <section className="col-span-12 lg:col-span-4 grid grid-rows-[120px_200px_100px_auto] gap-2 h-full">
               {/* ✅ Profile Card (Dynamic) */}
               <Card className="row-span-2 p-8 h-full relative">
-                <div className="avatar-abs h-20 w-20 rounded-full bg-accent overflow-hidden grid place-items-center text-3xl on-accent">👩🏻‍💼</div>
-                <div>
-                  <h2 className="p-1 font-bold text-m tracking-tight">Goodmorning, Dodi!</h2>
-                  <div className="p-1 ml-1 mb-5 text-sm text-gray-500">Vivamus sed tortor in ante placerat auctor.</div>
+                <div className="avatar-abs h-20 w-20 rounded-full overflow-hidden bg-gray-100">
+                  {profile.avatar ? (
+                    <img
+                      src={profile.avatar}
+                      alt="avatar"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl">👤</span>
+                  )}
                 </div>
 
                 {loading ? (
