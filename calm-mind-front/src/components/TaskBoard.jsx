@@ -8,48 +8,72 @@ export default function TaskBoard({
   onEdit,
   onDelete,
   onStatusChange,
-  completeTask
+  completeTask,
+  deriveStatus,
+  // NEW:
+  taskStresses = {},
+  StressIndicator,
+  onAddTask,
 }) {
+  const getColumnStyle = (status) => {
+    switch (status) {
+      case "todo":
+        return { bg: "bg-amber-50", text: "text-amber-800", dot: "bg-amber-300/60" };
+      case "in_progress":
+        return { bg: "bg-blue-50", text: "text-blue-800", dot: "bg-blue-300/60" };
+      case "completed":
+        return { bg: "bg-green-50", text: "text-green-800", dot: "bg-green-300/60" };
+      case "missing":
+        return { bg: "bg-orange-50", text: "text-orange-800", dot: "bg-orange-300/60" };
+      default:
+        return { bg: "bg-gray-50", text: "text-gray-800", dot: "bg-gray-300/60" };
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+    <div className="grid grid-cols-1 grid-rows-4 md:grid-cols-4 md:grid-rows-1 gap-4 w-full h-full">
       {columns.map((col) => {
-        const dark = col.status === "in_progress" || col.status === "completed";
+        const style = getColumnStyle(col.status);
         const columnTasks = tasksByStatus[col.status] || [];
 
         return (
-          <div
-            key={col.status}
-            className={`rounded-2xl p-4 shadow-sm h-[calc(100vh-138px)] ${dark ? "" : "bg-card"}`}
-            style={dark ? { background: "#1F1F1D" } : {}}
-          >
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <div className={`h-3 w-3 rounded-full ${dark ? "bg-blue-100" : "bg-yellow-300/60"}`} />
-                <div className={`font-semibold ${dark ? "text-white" : "text-primary"}`}>
-                  {col.title} <span className="opacity-60">({columnTasks.length})</span>
-                </div>
+          <div key={col.status} className="flex flex-col w-full min-w-0 min-h-0">
+            <div className={`flex items-center justify-between px-4 py-2 rounded-full ${style.bg} ${style.text} shadow-sm transition-shadow hover:shadow-md`}>
+              <div className="flex items-center gap-2">
+                <div className={`h-2 w-2 rounded-full ${style.dot}`} />
+                <span className="font-semibold text-sm">{col.title}</span>
+                <span className="text-xs opacity-70">({columnTasks.length})</span>
               </div>
-              <div className={dark ? "text-gray-300" : "text-gray-400"}>⋮</div>
+              <button
+                className="text-sm opacity-70 hover:opacity-100 transition-opacity"
+                onClick={() => onAddTask(col.status)}
+              >
+                +
+              </button>
             </div>
-
-            <div className="space-y-2 overflow-y-auto h-[calc(100%-40px)] pr-1">
-              {columnTasks.length === 0 && (
-                <div className={`text-sm ${dark ? "text-gray-300" : "text-gray-500"}`}>No tasks here yet.</div>
+            <div className="mt-3 flex-1 space-y-3 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {columnTasks.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-sm text-gray-500">
+                  No tasks here yet.
+                </div>
+              ) : (
+                columnTasks.map((task) => (
+                  <TaskCard
+                    key={task.id}
+                    task={task}
+                    derivedStatus={deriveStatus}
+                    onClick={onCardClick}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onStatusChange={onStatusChange}
+                    completeTask={completeTask}
+                    stressPercent={taskStresses[task.id] || 0}
+                    StressIndicator={StressIndicator}
+                  />
+                ))
               )}
-
-              {columnTasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  derivedStatus={(t) => col.status} // already grouped by derived status
-                  onClick={onCardClick}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onStatusChange={onStatusChange}
-                  completeTask={completeTask}
-                />
-              ))}
             </div>
+            
           </div>
         );
       })}

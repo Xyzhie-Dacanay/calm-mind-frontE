@@ -1,7 +1,7 @@
 // src/components/analytics/StressOverTime.jsx
 import React, { useMemo } from "react";
 import Card from "../../components/HoverCard";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceArea } from "recharts";
 
 const GOLD = "#B9A427";
 
@@ -50,6 +50,9 @@ export default function StressOverTime({ periods, series }) {
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 5]} tick={{ fontSize: 12 }} />
               <Tooltip />
+              <ReferenceArea y1={0} y2={2} fill="#4ade80" fillOpacity={0.1} />
+              <ReferenceArea y1={2} y2={3.5} fill="#facc15" fillOpacity={0.1} />
+              <ReferenceArea y1={3.5} y2={5} fill="#ef4444" fillOpacity={0.1} />
               <Line type="monotone" dataKey="stress" stroke={GOLD} strokeWidth={3} dot={{ r: 3 }} />
             </LineChart>
           </ResponsiveContainer>

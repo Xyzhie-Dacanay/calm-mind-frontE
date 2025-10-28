@@ -1,27 +1,23 @@
-// src/pages/Analytics.jsx
+// src/pages/admin/AdminHomepage.jsx
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import Sidebar from "../components/Sidebar";
-import Card from "../components/HoverCard";
-
-import PriorityChart from "../components/analytics/PriorityChart";
-import StatusChart from "../components/analytics/StatusChart";
-import StressOverTime from "../components/analytics/StressOverTime";
-import WorkloadVsStress from "../components/analytics/WorkloadVsStress";
-import StressorPie from "../components/analytics/StressorPie";
-import PredictiveTrend from "../components/analytics/PredictiveTrend";
-import KpiCards from "../components/analytics/KpiCards";
-import {
-  getTagDistributionFromLogs,
-  calculateAverageStressByStatus
-} from "../utils/stressUtils";
-
+import { useLocation } from "react-router-dom";
+import AdminSidebar from "../../components/admin/AdminSidebar";
+import Card from "../../components/HoverCard";
+import PriorityChart from "../../components/analytics/PriorityChart";
+import StatusChart from "../../components/analytics/StatusChart";
+import StressOverTime from "../../components/analytics/StressOverTime";
+import WorkloadVsStress from "../../components/analytics/WorkloadVsStress";
+import StressorPie from "../../components/analytics/StressorPie";
+import PredictiveTrend from "../../components/analytics/PredictiveTrend";
+import FilterCard from "../../components/analytics/FilterCard";
+import KpiCards from "../../components/analytics/KpiCards";
+import { getTagDistributionFromLogs } from "../../utils/stressUtils";
 import {
   buildPeriods,
   toDate,
   fmtYMD,
   addDays,
-} from "../utils/dateHelpers";
-
+} from "../../utils/dateHelpers";
 import {
   readTasksFromStorage,
   readStressFromStorage,
@@ -31,22 +27,24 @@ import {
   getPriorityDistribution,
   aggregateStressLogs,
   buildWorkloadVsStress,
-} from "../utils/analyticsData";
+} from "../../utils/analyticsData";
 
 /* ------------------------------ palette ----------------------------- */
 const COLORS = { gold: "#B9A427", charcoal: "#222322", cardBg: "#1F1F1D" };
 
-export default function Analytics() {
+export default function AdminHomepage() {
+  const location = useLocation();
+  const active = location.pathname === "/admin" ? "Dashboard" : undefined;
+
   /* ---------- theme ---------- */
   const [theme, setTheme] = useState(() => localStorage.getItem("cm-theme") || "light");
   useEffect(() => {
     localStorage.setItem("cm-theme", theme);
     document.documentElement.classList.toggle("cm-dark", theme === "dark");
   }, [theme]);
-  const toggleTheme = (forced) =>
-    setTheme((prev) => (typeof forced === "string" ? forced : prev === "dark" ? "light" : "dark"));
 
   /* ---------- live data (localStorage) ---------- */
+  // TODO: Replace with aggregated data fetches for all students (e.g., from backend API)
   const [tasks, setTasks] = useState(() => readTasksFromStorage());
   const [stressLogs, setStressLogs] = useState(() => readStressFromStorage());
 
@@ -55,6 +53,7 @@ export default function Analytics() {
 
   useEffect(() => {
     const sync = () => {
+      // TODO: Fetch aggregated tasks and stress logs for all students
       const t = readTasksFromStorage();
       if (JSON.stringify(t) !== taskLast.current) {
         taskLast.current = JSON.stringify(t);
@@ -80,13 +79,14 @@ export default function Analytics() {
     };
   }, []);
 
-  /* ---------- global filters in header ---------- */
+  /* ---------- global filters ---------- */
   const today = toDate(new Date());
   const defaultStart = addDays(today, -29);
 
   const [dateFrom, setDateFrom] = useState(() => localStorage.getItem("an_from") || fmtYMD(defaultStart));
   const [dateTo, setDateTo] = useState(() => localStorage.getItem("an_to") || fmtYMD(today));
-  const [periodMode, setPeriodMode] = useState(() => localStorage.getItem("an_mode") || "daily"); // daily|weekly|monthly|yearly
+  const [periodMode, setPeriodMode] = useState(() => localStorage.getItem("an_mode") || "monthly"); // Default to monthly for admin
+  const [groupBy, setGroupBy] = useState("None"); // Included for FilterCard
 
   useEffect(() => localStorage.setItem("an_from", dateFrom), [dateFrom]);
   useEffect(() => localStorage.setItem("an_to", dateTo), [dateTo]);
@@ -133,18 +133,8 @@ export default function Analytics() {
     });
   }, [stressLogs, range]);
 
-  /* ---------- KPIs & Stress Metrics ---------- */
-  const totals = useMemo(() => getTaskCounts(tasks, deriveStatus), [tasks]);
-
-  const stressAverages = useMemo(() => {
-    const now = Date.now();
-    return {
-      todo: calculateAverageStressByStatus(tasks, "todo", now, deriveStatus).avgStress,
-      in_progress: calculateAverageStressByStatus(tasks, "in_progress", now, deriveStatus).avgStress,
-      missing: calculateAverageStressByStatus(tasks, "missing", now, deriveStatus).avgStress,
-      completed: 0 // We don't show stress for completed tasks
-    };
-  }, [tasks]);
+  /* ---------- KPIs ---------- */
+  const totals = useMemo(() => getTaskCounts(tasksForSnapshot, deriveStatus), [tasksForSnapshot]);
 
   /* ---------- charts data ---------- */
   const priorityPieData = useMemo(
@@ -156,17 +146,9 @@ export default function Analytics() {
     const base = { "To Do": 0, "In Progress": 0, "Missing": 0, "Completed": 0 };
     tasksForSnapshot.forEach((t) => {
       const s = deriveStatus(t);
-      if (s === "todo") base["To Do"]++;
-      else if (s === "in_progress") base["In Progress"]++;
-      else if (s === "missing") base["Missing"]++;
-      else if (s === "completed") base["Completed"]++;
+      base[s] = (base[s] || 0) + 1;
     });
-    return [
-      { name: "To Do", value: base["To Do"] },
-      { name: "In Progress", value: base["In Progress"] },
-      { name: "Missing", value: base["Missing"] },
-      { name: "Completed", value: base["Completed"] },
-    ];
+    return Object.entries(base).map(([name, value]) => ({ name, value }));
   }, [tasksForSnapshot]);
 
   const stressSeriesByMode = useMemo(
@@ -185,7 +167,6 @@ export default function Analytics() {
     [tasksForTimeSeries, stressSeriesByMode, periods]
   );
 
-  // ✅ include ALL tags (default + custom) via shared helper
   const tagsForPie = useMemo(
     () => getTagDistributionFromLogs(stressInRange),
     [stressInRange]
@@ -195,52 +176,15 @@ export default function Analytics() {
   return (
     <div className="min-h-screen h-screen">
       <div className="h-full w-full flex">
-        <Sidebar theme={theme} onToggleTheme={toggleTheme} active="Analytics" />
+        <AdminSidebar active={active} />
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Header (with filters inside) */}
+          {/* Header */}
           <div className="sticky top-0 z-20 bg-transparent">
             <div className="mb-3 mt-2 px-2">
               <Card className="w-full px-4 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3 hover:shadow-none hover:-translate-y-0 hover:bg-inherit cursor-default">
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+                  <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard (All Students)</h1>
                 </div>
-
-                {/* Filters moved here */}
-                <div className="flex flex-wrap items-end gap-2">
-                  <div className="flex flex-col">
-                    <label className="text-[11px] text-gray-500 mb-0.5">From</label>
-                    <input
-                      type="date"
-                      value={dateFrom}
-                      onChange={(e) => setDateFrom(e.target.value)}
-                      className="border rounded-lg px-3 py-2 bg-white/70 dark:bg-white/70"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="text-[11px] text-gray-500 mb-0.5">To</label>
-                    <input
-                      type="date"
-                      value={dateTo}
-                      onChange={(e) => setDateTo(e.target.value)}
-                      className="border rounded-lg px-3 py-2 bg-white/70 dark:bg-white/70"
-                    />
-                  </div>
-                  <div className="flex flex-col">
-                    <label className="text-[11px] text-gray-500 mb-0.5">Period</label>
-                    <select
-                      value={periodMode}
-                      onChange={(e) => setPeriodMode(e.target.value)}
-                      className="border rounded-lg px-3 py-2 bg-white/70 dark:bg-white/70"
-                    >
-                      <option value="daily">Daily</option>
-                      <option value="weekly">Weekly</option>
-                      <option value="monthly">Monthly</option>
-                      <option value="yearly">Yearly</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Tips text */}
                 <div className="text-xs text-gray-500 md:ml-4">
                   Tips: Adjust the date range and period to see trends update live.
                 </div>
@@ -248,24 +192,31 @@ export default function Analytics() {
             </div>
           </div>
 
+          {/* Filters */}
+          <div className="px-2 mb-4">
+            <FilterCard
+              dateFrom={dateFrom}
+              onChangeFrom={setDateFrom}
+              dateTo={dateTo}
+              onChangeTo={setDateTo}
+              periodMode={periodMode}
+              onChangeMode={setPeriodMode}
+              groupBy={groupBy}
+              onChangeGroupBy={setGroupBy}
+            />
+          </div>
+
           {/* Body */}
           <div className="flex-1 overflow-y-auto px-2 pb-24">
             {/* KPI Cards */}
-            <KpiCards
-              totals={totals}
-              stressAverages={stressAverages}
-              colors={COLORS}
-            />
+            <KpiCards totals={totals} colors={COLORS} />
 
             {/* Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <PriorityChart data={priorityPieData} />
               <StatusChart data={statusBarData} />
-
-              {/* These charts rely on the global Period/From/To */}
               <StressOverTime periods={periods} series={stressSeriesByMode} />
               <WorkloadVsStress data={workloadVsStress} />
-
               <StressorPie data={tagsForPie} />
               <PredictiveTrend
                 tasks={tasksForTimeSeries}

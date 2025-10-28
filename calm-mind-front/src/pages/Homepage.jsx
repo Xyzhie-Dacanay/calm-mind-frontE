@@ -21,6 +21,7 @@ const LS_STRESS_A = "cm_stress_logs_v1";
 const LS_STRESS_B = "cm-stress"; // legacy/alt key used elsewhere
 const CHATBOT_ROUTE = "/chatbot";
 const TASKS_ROUTE = "/tasks";
+const CALENDAR_ROUTE = "/calendar";
 
 // Palette to match your theme
 const AMBER = "#B9A427";
@@ -175,6 +176,59 @@ export default function HomePage() {
 
   const hasStressData = stressSeries7d.some(d => d.value > 0);
 
+  /* ---------------- Calendar Logic ---------------- */
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
+
+  const monthName = useMemo(() => selectedDate.toLocaleString(undefined, { month: 'long', year: 'numeric' }), [selectedDate]);
+
+  const daysGrid = useMemo(() => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const lastOfMonth = new Date(year, month + 1, 0);
+    const leading = firstOfMonth.getDay();
+    const totalDays = lastOfMonth.getDate();
+
+    const arr = [];
+    for (let i = 0; i < leading; i++) arr.push(null);
+    for (let d = 1; d <= totalDays; d++) arr.push(d);
+    while (arr.length % 7 !== 0) arr.push(null);
+    return arr;
+  }, [selectedDate]);
+
+  const realToday = useMemo(() => new Date(), []);
+  const todayYMD = useMemo(() => ({
+    y: realToday.getFullYear(),
+    m: realToday.getMonth(),
+    d: realToday.getDate()
+  }), [realToday]);
+
+  const taskDates = useMemo(() => {
+    const set = new Set();
+    tasksLS.forEach(t => {
+      if (t.dueDate) {
+        set.add(t.dueDate);
+      }
+    });
+    return set;
+  }, [tasksLS]);
+
+  const handlePrevMonth = () => {
+    setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const handleNextMonth = () => {
+    setSelectedDate(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const handleDateClick = (dayNum) => {
+    if (!dayNum) return;
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    navigate(`${CALENDAR_ROUTE}?date=${dateStr}`);
+  };
+
   /* -------------------------------------------------------------------- */
   return (
     <div className="min-h-screen h-screen">
@@ -284,9 +338,9 @@ export default function HomePage() {
               {/* Calendar (responsive) */}
               <Card className="pt-3 pr-6 pl-6 col-span-12 md:col-span-7 p-1 h-full flex flex-col">
                 <div className="-mt-2 flex items-center justify-between px-2">
-                  <button aria-label="Prev month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm">‹</button>
-                  <div className="pt-3 font-extrabold text-center text-base">October 2025</div>
-                  <button aria-label="Next month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm">›</button>
+                  <button aria-label="Prev month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm" onClick={handlePrevMonth}>‹</button>
+                  <div className="pt-3 font-extrabold text-center text-base">{monthName}</div>
+                  <button aria-label="Next month" className="mt-3 h-8 w-8 grid place-items-center rounded-full bg-white/60 text-gray-700 hover:bg-card shadow-sm" onClick={handleNextMonth}>›</button>
                 </div>
                 <div className="grid grid-cols-7 text-center text-[12px] font-medium text-gray-600 mb-0 p-3">
                   {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
@@ -294,11 +348,24 @@ export default function HomePage() {
                   ))}
                 </div>
                 <div className="grid grid-cols-7 gap-0 mb-0 text-center text-sm auto-rows-[minmax(36px,1fr)] h-full px-3 pb-3">
-                  {[...Array(3).fill(null), ...Array.from({ length: 31 }, (_, i) => i + 1), ...Array(1).fill(null)].map((d, idx) => (
-                    <div key={idx} className={`flex items-center justify-center rounded-md transition-colors duration-150 ${d === 24 ? "bg-accent on-accent font-extrabold shadow-md" : "hover:bg-card text-gray-700"}`}>
-                      <span className={`${d === 24 ? "text-base" : "text-sm"}`}>{d ?? ""}</span>
-                    </div>
-                  ))}
+                  {daysGrid.map((dayNum, idx) => {
+                    const year = selectedDate.getFullYear();
+                    const month = selectedDate.getMonth();
+                    const dateStr = dayNum ? `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}` : null;
+                    const hasTask = dateStr && taskDates.has(dateStr);
+                    const isToday = dayNum && year === todayYMD.y && month === todayYMD.m && dayNum === todayYMD.d;
+                    return (
+                      <button
+                        key={idx}
+                        className={`flex flex-col items-center justify-center rounded-md transition-colors duration-150 ${isToday ? "bg-accent on-accent font-extrabold shadow-md" : "hover:bg-card text-gray-700"}`}
+                        onClick={() => handleDateClick(dayNum)}
+                        disabled={!dayNum}
+                      >
+                        <span className={`${isToday ? "text-base" : "text-sm"}`}>{dayNum ?? ""}</span>
+                        {hasTask && <div className="w-1 h-1 rounded-full bg-accent mx-auto mt-1" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </Card>
 
@@ -319,7 +386,7 @@ export default function HomePage() {
 
               {/* Profile + Stress Level Over Time (LINE CHART) */}
               <Card className="row-span-2 p-8 h-full relative">
-                <div className="avatar-abs h-20 w-20 rounded-full bg-accent overflow-hidden grid place-items-center text-3xl on-accent">👩🏻‍💼</div>
+                <div className="avatar-abs h-20 w-20 rounded-full bg-accent overflow-hidden place-items-center text-3xl on-accent">👩🏻‍💼</div>
                 <div>
                   <h2 className="p-1 font-bold text-m tracking-tight">Goodmorning, Dodi!</h2>
                   <div className="p-1 ml-1 mb-5 text-sm text-gray-500">Vivamus sed tortor in ante placerat auctor.</div>

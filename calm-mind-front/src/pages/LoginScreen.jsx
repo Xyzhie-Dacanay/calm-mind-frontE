@@ -1,75 +1,104 @@
-// src/pages/LoginScreen.jsx
-import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/authStore";
 
 export default function LoginScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [formAnimation, setFormAnimation] = useState("animate-swap-in-left");
   const [imageAnimation, setImageAnimation] = useState("animate-swap-in-left");
+  const [showPassword, setShowPassword] = useState(false);
 
   // Local state for handling errors and loading in the login form
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // ✅ Success banner state (auto-fades after 3s)
+  const [resetSuccess, setResetSuccess] = useState(
+    Boolean(location.state && location.state.resetSuccess)
+  );
+  const [bannerVisible, setBannerVisible] = useState(
+    Boolean(location.state && location.state.resetSuccess)
+  );
+
+  // Clear router state so banner doesn't persist on refresh/back
+  useEffect(() => {
+    if (location.state && location.state.resetSuccess) {
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.pathname, location.state, navigate]);
+
+  // Auto fade-out success banner
+  useEffect(() => {
+    if (!resetSuccess) return;
+    setBannerVisible(true);
+    const fadeTimer = setTimeout(() => setBannerVisible(false), 3000); // start fade after 3s
+    const removeTimer = setTimeout(() => setResetSuccess(false), 3600); // unmount after fade
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(removeTimer);
+    };
+  }, [resetSuccess]);
+
   const { login: _storeLogin, loading: _storeLoading, error: _storeError } = useAuthStore();
 
   const handleLogin = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  try {
-    setError("");
-    setLoading(true);
+    try {
+      setError("");
+      setLoading(true);
 
-    const response = await fetch("http://localhost:4000/api/users/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: email.toLowerCase(),
-        password,
-      }),
-    });
+      const response = await fetch("http://localhost:4000/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          password,
+        }),
+      });
 
-    const data = await response.json();
-    console.log("Login response:", data); // <--- helpful to debug
+      const data = await response.json();
+      console.log("Login response:", data);
 
-    if (!response.ok) {
-      setError(data.message || "Login failed.");
-      return;
+      if (!response.ok) {
+        setError(data.message || "Login failed.");
+        return;
+      }
+
+      if (data.token) localStorage.setItem("token", data.token);
+      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (!user.isProfileComplete) {
+        navigate("/get-started");
+      } else {
+        navigate("/home");
+      }
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Login failed.");
+    } finally {
+      setLoading(false);
     }
-
-    if (data.token) localStorage.setItem("token", data.token);
-    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-
-    // Debugging token
-      console.log("Token in localStorage:", localStorage.getItem("token"));
-      console.log("User in localStorage:", localStorage.getItem("user"));
-
-    // Check if user has completed profile setup
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (!user.isProfileComplete) {
-      navigate("/get-started");
-    } else {
-      navigate("/home");
-    }
-  } catch (err) {
-    console.error("Login error:", err);
-    setError("Login failed.");
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const handleGoSignup = () => {
     setFormAnimation("animate-swap-out-left");
     setImageAnimation("animate-swap-out-left");
     setTimeout(() => navigate("/"), 200);
+  };
+
+  const handleGoForgot = () => {
+    setFormAnimation("animate-swap-out-left");
+    setImageAnimation("animate-swap-out-left");
+    setTimeout(() => navigate("/forgot-password"), 200);
   };
 
   return (
@@ -82,6 +111,22 @@ export default function LoginScreen() {
           <div className="mb-8">
             <img src="/logo.png" alt="Calm Mind Logo" className="h-12" />
           </div>
+
+          {/* ✅ Auto-fading success banner */}
+          {resetSuccess && (
+            <div
+              className={`mb-6 flex items-start justify-between rounded-md border border-emerald-200 bg-emerald-50 p-3 text-emerald-800 text-sm transition-opacity duration-500 ease-out ${
+                bannerVisible ? "opacity-100" : "opacity-0"
+              }`}
+              role="status"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true">✅</span>
+                <span>Password updated successfully. Please sign in with your new password.</span>
+              </div>
+            </div>
+          )}
 
           <h1 className="text-3xl font-bold mb-2 text-gray-800">Log in.</h1>
           <p className="text-gray-600 mb-8">
@@ -116,15 +161,24 @@ export default function LoginScreen() {
               >
                 Password
               </label>
-              <input
-                id="password"
-                className="w-full p-3 border border-gray-300 rounded-md"
-                placeholder="Enter your password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  className="w-full p-3 border border-gray-300 rounded-md"
+                  placeholder="Enter your password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
+              </div>
             </div>
 
             {/* Error and loading states */}
@@ -170,7 +224,7 @@ export default function LoginScreen() {
             </p>
             <button
               className="mt-2 text-yellow-500 hover:underline"
-              onClick={() => navigate("/forgot-password")}
+              onClick={handleGoForgot}
             >
               Forgot Password?
             </button>

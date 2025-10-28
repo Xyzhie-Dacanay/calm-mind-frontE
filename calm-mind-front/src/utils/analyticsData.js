@@ -78,7 +78,10 @@ export function aggregateStressLogs(logs, periods) {
     const d = new Date(l.ts || l.date);
     d.setHours(0,0,0,0);
     const match = periods.find((p) => d >= p.start && d <= p.end);
-    if (match) bucket.get(match.key).push(Number(l.stress || l.level || 0));
+    // Convert stress logs to 0-5 scale if they're in 0-100
+    const stressValue = Number(l.stress || l.level || 0);
+    const normalizedStress = stressValue > 5 ? stressValue / 20 : stressValue;
+    if (match) bucket.get(match.key).push(normalizedStress);
   });
   return periods.map((p) => {
     const arr = bucket.get(p.key);

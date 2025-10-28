@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState, useContext, useRef, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
-import { useState, useContext, useRef, useEffect } from 'react';
 import { ThemeContext } from '../context/ThemeContext';
 import '../styles/theme.css';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,44 +21,53 @@ const Settings = () => {
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const fileInputRef = useRef(null);
   const yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year'];
-  const courses = [
-    'Bachelor of Science in Information Technology (CITE)',
-    'Bachelor of Science in Nursing (CAHS)',
-    'Bachelor of Science in Pharmacy (CAHS)',
-    'Bachelor in Medical Laboratory Science (CAHS)',
-    'Bachelor of Science in Psychology (CAHS)',
-    'Bachelor of Science in Architecture (CEA)',
-    'Bachelor of Science in Computer Engineering (CEA)',
-    'Bachelor of Science in Civil Engineering (CEA)',
-    'Bachelor of Science in Electrical Engineering (CEA)',
-    'Bachelor of Science in Mechanical Engineering (CEA)',
-    'Bachelor of Science in Criminology (CCJE)',
-    'Bachelor of Arts in Political Science (CELA)',
-    'Bachelor of Science in Elementary Education (CELA)',
-    'Bachelor of Secondary Education Major in English (CELA)',
-    'Bachelor of Secondary Education Major in Math (CELA)',
-    'Bachelor of Secondary Education Major in Science (CELA)',
-    'Bachelor of Secondary Education Major in Social Studies (CELA)',
-    'Bachelor of Science in Accountancy (CMA)',
-    'Bachelor of Science in Management Accounting (CMA)',
-    'Bachelor of Science in Accountancy Technology (CMA)',
-    'Bachelor of Science in Hospitality Management (CMA)',
-    'Bachelor of Science in Tourism Management (CMA)',
-    'Bachelor of Science in Business Administration Major in Marketing Management (CMA)',
-    'Bachelor of Science in Business Administration Major in Financial Management (CMA)',
-  ];
+  const departments = ['CITE', 'CAHS', 'CEA', 'CCJE', 'CELA', 'CMA'];
+  const courseMap = {
+    CITE: ['Bachelor of Science in Information Technology'],
+    CAHS: [
+      'Bachelor of Science in Nursing',
+      'Bachelor of Science in Pharmacy',
+      'Bachelor in Medical Laboratory Science',
+      'Bachelor of Science in Psychology'
+    ],
+    CEA: [
+      'Bachelor of Science in Architecture',
+      'Bachelor of Science in Computer Engineering',
+      'Bachelor of Science in Civil Engineering',
+      'Bachelor of Science in Electrical Engineering',
+      'Bachelor of Science in Mechanical Engineering'
+    ],
+    CCJE: ['Bachelor of Science in Criminology'],
+    CELA: [
+      'Bachelor of Arts in Political Science',
+      'Bachelor of Science in Elementary Education',
+      'Bachelor of Secondary Education Major in English',
+      'Bachelor of Secondary Education Major in Math',
+      'Bachelor of Secondary Education Major in Science',
+      'Bachelor of Secondary Education Major in Social Studies'
+    ],
+    CMA: [
+      'Bachelor of Science in Accountancy',
+      'Bachelor of Science in Management Accounting',
+      'Bachelor of Science in Accountancy Technology',
+      'Bachelor of Science in Hospitality Management',
+      'Bachelor of Science in Tourism Management',
+      'Bachelor of Science in Business Administration Major in Marketing Management',
+      'Bachelor of Science in Business Administration Major in Financial Management'
+    ]
+  };
 
   const [profile, setProfile] = useState({
     avatar: '/path-to-your-profile-image.jpg',
     fullName: 'Dodi Dacanay',
     year: '3rd Year',
-    course: 'Bachelor of Science in Information Technology (CITE)',
+    department: 'CITE',
+    course: 'Bachelor of Science in Information Technology',
     id: '03-2122-032245',
     firstName: 'Dodi',
     lastName: 'Dacanay',
     phone: '+63 909 205 2094',
     email: 'xyfe.dacanay.up@phinmaed.com',
-    address: 'Bolasi, San Fabian Pangasinan',
   });
   const [draftProfile, setDraftProfile] = useState(null);
 
@@ -69,7 +77,7 @@ const Settings = () => {
   const idRef = useRef(null);
   const phoneRef = useRef(null);
   const emailRef = useRef(null);
-  const addressRef = useRef(null);
+  const departmentRef = useRef(null);
 
   useEffect(() => {
     if (editMode) {
@@ -111,13 +119,13 @@ const Settings = () => {
       avatar: draftProfile?.avatar || profile.avatar,
       fullName: fullNameRef.current ? fullNameRef.current.value : profile.fullName,
       year: draftProfile?.year || profile.year,
+      department: draftProfile?.department || profile.department,
       course: draftProfile?.course || profile.course,
       id: idRef.current ? idRef.current.value : profile.id,
       firstName: firstNameRef.current ? firstNameRef.current.value : profile.firstName,
       lastName: lastNameRef.current ? lastNameRef.current.value : profile.lastName,
       phone: phoneRef.current ? phoneRef.current.value : profile.phone,
       email: emailRef.current ? emailRef.current.value : profile.email,
-      address: addressRef.current ? addressRef.current.value : profile.address,
     };
     
     // Simulate a save delay with progressive loading
@@ -135,12 +143,11 @@ const Settings = () => {
     }, 2000);
   };
 
-
   const ProfileContent = () => {
     const current = editMode && draftProfile ? draftProfile : profile;
     return (
       <div className="profile-content bg-card rounded-lg pt-1 pl-8 pr-8 pb-8 shadow-lg">
-    <div className="profile-header mb-8 cm-fade-up cm-delay-1">
+        <div className="profile-header mb-8 cm-fade-up cm-delay-1">
           <h2 className="text-2xl font-semibold text-primary mb-4">My Profile</h2>
           <div className="profile-card bg-card p-6 rounded-lg border border-gray-200 flex items-center gap-8 justify-between">
             <div className="flex items-center gap-8">
@@ -152,74 +159,74 @@ const Settings = () => {
                     className={`w-full h-full object-cover cursor-pointer transition-all duration-300
                       ${editMode ? 'ring-2 ring-yellow-500 ring-offset-2 ring-offset-white dark:ring-offset-gray-900' : ''}`}
                     onClick={() => editMode && fileInputRef.current?.click()}
-                />
-                {editMode && (
-                  <div 
-                    className={`absolute inset-0 flex flex-col items-center justify-center rounded-full
-                      bg-black/30 backdrop-blur-sm transition-all duration-300
-                      ${isImageLoading ? 'opacity-100' : 'opacity-70 hover:opacity-100 hover:bg-black/50'}
-                      cursor-pointer`}
-                    onClick={() => !isImageLoading && fileInputRef.current?.click()}
-                  >
-                    {!isImageLoading && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
-                        <svg 
-                          className="w-6 h-6 text-white transform transition-transform duration-300 group-hover:scale-110 mb-1" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24" 
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" 
-                          />
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" 
-                          />
-                        </svg>
-                        <span className="text-xs font-medium text-white leading-tight transform transition-transform duration-300 group-hover:scale-110">
-                          Change<br />Photo
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setIsImageLoading(true);
-                      const reader = new FileReader();
-                      reader.onload = (e) => {
-                        setDraftProfile(prev => ({
-                          ...prev,
-                          avatar: e.target?.result
-                        }));
-                        setIsImageLoading(false);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-                {isImageLoading && (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
-                    <div className="relative w-10 h-10">
-                      <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30"></div>
-                      <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-yellow-500 animate-spin"></div>
+                  />
+                  {editMode && (
+                    <div 
+                      className={`absolute inset-0 flex flex-col items-center justify-center rounded-full
+                        bg-black/30 backdrop-blur-sm transition-all duration-300
+                        ${isImageLoading ? 'opacity-100' : 'opacity-70 hover:opacity-100 hover:bg-black/50'}
+                        cursor-pointer`}
+                      onClick={() => !isImageLoading && fileInputRef.current?.click()}
+                    >
+                      {!isImageLoading && (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center">
+                          <svg 
+                            className="w-6 h-6 text-white transform transition-transform duration-300 group-hover:scale-110 mb-1" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24" 
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" 
+                            />
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={2} 
+                              d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" 
+                            />
+                          </svg>
+                          <span className="text-xs font-medium text-white leading-tight transform transition-transform duration-300 group-hover:scale-110">
+                            Change<br />Photo
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <span className="text-sm font-medium text-white mt-2">Processing...</span>
-                  </div>
-                )}
+                  )}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setIsImageLoading(true);
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                          setDraftProfile(prev => ({
+                            ...prev,
+                            avatar: e.target?.result
+                          }));
+                          setIsImageLoading(false);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  {isImageLoading && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/50 backdrop-blur-sm">
+                      <div className="relative w-10 h-10">
+                        <div className="absolute inset-0 rounded-full border-2 border-yellow-500/30"></div>
+                        <div className="absolute inset-0 rounded-full border-t-2 border-r-2 border-yellow-500 animate-spin"></div>
+                      </div>
+                      <span className="text-sm font-medium text-white mt-2">Processing...</span>
+                    </div>
+                  )}
                 </div>
               </div>
               <div>
@@ -227,37 +234,56 @@ const Settings = () => {
                   <input
                     ref={fullNameRef}
                     autoComplete="name"
-                    className="text-xl font-semibold text-primary bg-transparent outline-none"
+                    className="text-xl font-semibold text-primary bg-transparent outline-none mb-2"
                     defaultValue={current.fullName}
                   />
                 ) : (
-                  <h3 className="text-xl font-semibold text-primary">{current.fullName}</h3>
+                  <h3 className="text-xl font-semibold text-primary mb-2">{current.fullName}</h3>
                 )}
-                {editMode ? (
-                  <select
-                    value={current.year}
-                    onChange={(e) => setDraftProfile(prev => ({ ...prev, year: e.target.value }))}
-                    className="text-muted bg-transparent border border-gray-200 rounded px-2 py-1 w-full mb-1"
-                  >
-                    {yearLevels.map(year => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <p className="text-muted">{current.year}</p>
-                )}
+                <div className="flex items-center gap-4 mb-1">
+                  {editMode ? (
+                    <>
+                      <select
+                        ref={departmentRef}
+                        value={current.department}
+                        onChange={(e) => setDraftProfile(prev => ({ ...prev, department: e.target.value, course: '' }))}
+                        className="text-muted bg-transparent border border-gray-200 rounded px-2 py-1 w-24"
+                      >
+                        <option value="">Select</option>
+                        {departments.map(dept => (
+                          <option key={dept} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                      <select
+                        value={current.year}
+                        onChange={(e) => setDraftProfile(prev => ({ ...prev, year: e.target.value }))}
+                        className="text-muted bg-transparent border border-gray-200 rounded px-2 py-1 w-24"
+                      >
+                        <option value="">Select</option>
+                        {yearLevels.map(year => (
+                          <option key={year} value={year}>{year}</option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <p className="text-muted">{current.department} {current.year}</p>
+                  )}
+                </div>
                 {editMode ? (
                   <select
                     value={current.course}
                     onChange={(e) => setDraftProfile(prev => ({ ...prev, course: e.target.value }))}
-                    className="text-muted bg-transparent border border-gray-200 rounded px-2 py-1 w-full mb-1 text-sm"
+                    disabled={!current.department}
+                    className={`text-muted bg-transparent border border-gray-200 rounded px-2 py-1 w-full mb-1 text-sm
+                      ${current.department ? '' : 'opacity-50 cursor-not-allowed'}`}
                   >
-                    {courses.map(course => (
+                    <option value="">Select course</option>
+                    {current.department && courseMap[current.department]?.map(course => (
                       <option key={course} value={course}>{course}</option>
                     ))}
                   </select>
                 ) : (
-                  <p className="text-muted text-sm">{current.course}</p>
+                  <p className="text-muted text-sm mb-1">{current.course}</p>
                 )}
                 {editMode ? (
                   <input
@@ -334,7 +360,7 @@ const Settings = () => {
           }
         `}</style>
 
-  <div className="personal-info mt-8 cm-fade-up cm-delay-2">
+        <div className="personal-info mt-8 cm-fade-up cm-delay-2">
           <h3 className="text-xl font-semibold mb-6 text-primary">Personal Information</h3>
           <div className="grid grid-cols-2 gap-6">
             <div>
@@ -385,18 +411,6 @@ const Settings = () => {
                 <p className="text-primary">{current.email}</p>
               )}
             </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-muted mb-2">Address</label>
-              {editMode ? (
-                <input
-                  ref={addressRef}
-                  className="text-primary bg-transparent border border-gray-200 rounded px-2 py-1 w-full"
-                  defaultValue={current.address}
-                />
-              ) : (
-                <p className="text-primary">{current.address}</p>
-              )}
-            </div>
           </div>
         </div>
       </div>
@@ -405,7 +419,7 @@ const Settings = () => {
 
   return (
     <div className="flex h-screen bg-card">
-      <Sidebar />
+      <Sidebar active="Settings" />
       <div className="flex-1 overflow-auto">
         <div className="p-3">
           <div className="mb-8">
@@ -439,7 +453,6 @@ const Settings = () => {
         </div>
       </div>
 
-      
       <div className="block lg:hidden fixed bottom-4 left-4 z-50">
         <div className={`theme-switch ${theme === "dark" ? "dark" : ""}`} role="group" aria-label="Theme toggle">
           <button

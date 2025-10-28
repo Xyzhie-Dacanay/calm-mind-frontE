@@ -36,10 +36,23 @@ export default function PredictiveTrend({ tasks, stressSeries, periods }) {
   const insight = useMemo(() => {
     if (!has) return "Not enough data to compute a trend.";
     const b = reg.b || 0;
-    if (Math.abs(b) < 0.03) return "Predicted impact is minimal — stress changes are weakly tied to workload.";
-    if (b > 0) return `Model suggests stress rises with workload (≈ +${b.toFixed(2)} per extra active task).`;
-    return `Model suggests stress eases as workload drops (≈ ${b.toFixed(2)} per task).`;
-  }, [has, reg.b]);
+    const lastStress = data[data.length - 1]?.stress || 0;
+    const predictedStress = data[data.length - 1]?.predicted || 0;
+    const trend = predictedStress > lastStress ? "increase" : "decrease";
+    const nextFriday = new Date();
+    nextFriday.setDate(nextFriday.getDate() + (5 - nextFriday.getDay() + 7) % 7);
+    
+    let message = "";
+    if (Math.abs(b) < 0.03) {
+      message = "Predicted impact is minimal — stress changes are weakly tied to workload.";
+    } else if (b > 0) {
+      const projectedStress = Math.min(5, predictedStress + b * 2).toFixed(1);
+      message = `If current workload continues, stress may ${trend} to ${projectedStress} by ${nextFriday.toLocaleDateString('en-US', { weekday: 'long' })}. Consider taking breaks to manage stress levels.`;
+    } else {
+      message = `Model suggests stress will ${trend}. Keep up the good work with task management!`;
+    }
+    return message;
+  }, [has, reg.b, data]);
 
   return (
     <Card className="p-6">

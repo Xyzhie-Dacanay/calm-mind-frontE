@@ -1,4 +1,3 @@
-// src/components/Sidebar.jsx
 import React, { useContext } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ThemeContext } from "../context/ThemeContext";
@@ -116,7 +115,7 @@ export default function Sidebar({
         <div className="uppercase text-gray-400 text-[11px] px-3 mt-6 mb-2">General</div>
         <ul className="space-y-1">
           {generalMenu.map((m) => {
-            const isActive = path === m.href;
+            const isActive = typeof active === 'string' ? m.label === active : path.startsWith(m.href);
             return (
               <li key={m.label}>
                 {m.href.startsWith('#') ? (
@@ -176,10 +175,8 @@ export default function Sidebar({
               </svg>
             </button>
 
-           
             <button type="button" className="knob-button" aria-hidden="true" tabIndex={-1} />
 
-            
             <button
               type="button"
               className="moon-button"

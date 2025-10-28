@@ -60,7 +60,26 @@ export default function WorkloadVsStress({ data }) {
               <XAxis dataKey="label" />
               <YAxis yAxisId="left" allowDecimals={false} />
               <YAxis yAxisId="right" orientation="right" domain={[0, 5]} />
-              <Tooltip />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-white p-4 rounded-lg shadow-lg border">
+                        <p className="font-semibold">{data.label}</p>
+                        <p className="text-sm text-gray-600">Active Tasks: {data.workload}</p>
+                        <p className="text-sm text-gray-600">Stress Level: {data.stress}</p>
+                        {data.stressCause && (
+                          <p className="text-sm text-red-500 mt-2">
+                            Main stressor: {data.stressCause}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
               <Legend />
               <Bar yAxisId="left" dataKey="workload" name="Active Tasks" fill={CHAR} radius={[6, 6, 0, 0]} />
               <Line yAxisId="right" type="monotone" dataKey="stress" name="Stress (avg)" stroke={GOLD} strokeWidth={3} dot={{ r: 3 }} />

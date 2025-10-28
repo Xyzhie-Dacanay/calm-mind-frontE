@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 
-// Only 3 user-selectable states; "missing" is computed elsewhere
+// Only user-selectable states; "missing" and "done_late" are computed elsewhere and not user-selectable
 export const STATUS_OPTIONS = [
   { key: "todo",        label: "To Do",       dot: "bg-gray-400"  },
   { key: "in_progress", label: "In Progress", dot: "bg-blue-500"  },
@@ -66,7 +66,3 @@ export default function StatusDropdown({ value, onChange, buttonClass = "", menu
     </div>
   );
 }
-
-/* Tailwind keyframes (add to your CSS if needed)
-@keyframes scaleIn { from { transform: scale(.98); opacity: 0 } to { transform: scale(1); opacity: 1 } }
-*/
