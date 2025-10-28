@@ -109,7 +109,7 @@ export default function ChatBotStressBoard() {
               className="flex-1 flex flex-col gap-3 p-2"
             >
               {/* Chat */}
-              <div className="w-full rounded-2xl bg-[#F3EFE0] border border-gray-200 flex-1 relative flex flex-col overflow-x-hidden">
+              <div className="w-full rounded-2xl bg-[#ffffff] border border-gray-200 flex-1 relative flex flex-col overflow-x-hidden">
                 <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 overflow-x-hidden">
                   <div className="max-w-3xl mx-auto">
                     {messages.map((m) => (
@@ -161,7 +161,7 @@ export default function ChatBotStressBoard() {
                       }
                     }}
                     placeholder="Type your message..."
-                    className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-200"
+                    className="flex-1 rounded-xl border border-gray-300 bg-white px-4 py-3 focus:outline-none focus:ring-2 focus:ring-white"
                   />
                   <button
                     onClick={handleSend}
