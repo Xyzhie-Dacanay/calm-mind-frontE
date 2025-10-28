@@ -16,6 +16,7 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import GetStarted from "./pages/GetStarted";
 import SettingsLogin from "./pages/SettingsLogin";
+import ForgotPassword from "./pages/ForgotPassword";
 import SettingsAbout from "./pages/SettingsAbout";
 import AdminHomepage from "./pages/admin/AdminHomepage";
 import { useAuthStore } from "./store/authStore";
@@ -52,6 +53,7 @@ function App() {
           {/* Default flow: signup → login → get-started → home */}
           <Route path="/" element={<SignupScreen />} />
           <Route path="/login" element={<LoginScreen />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route
             path="/get-started"
             element={token ? <GetStarted /> : <Navigate to="/login" replace />}
