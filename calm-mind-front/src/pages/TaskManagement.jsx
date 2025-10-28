@@ -7,19 +7,23 @@ import TaskTableView from "../components/TaskTableView";
 import TaskForm from "../components/TaskForm";
 import TaskOverview from "../components/TaskOverview";
 import KebabMenu from "../components/KebabMenu";
-import Card from "../components/HoverCard";
-import dayjs from "dayjs";
+
+/**
+ * Task = {
+ *   id: string,
+ *   title: string,
+ *   status: 'todo' | 'in_progress' | 'missing' | 'completed',
+ *   priority: 'Low' | 'Medium' | 'High',
+ *   startDate: 'YYYY-MM-DD',
+ *   dueDate: 'YYYY-MM-DD',
+ *   description: string
+ * }
+ */
 
 const STORAGE_KEY = "tasks";
 
-const AMBER = { 500: "#f59e0b", 600: "#d97706" };
-
-function toDateKey(ts) {
-  return dayjs(ts).format("YYYY-MM-DD");
-}
-
 export default function TaskManagement() {
-  // Theme
+  // ===== Theme =====
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem("cm-theme") || "light";
@@ -27,6 +31,7 @@ export default function TaskManagement() {
       return "light";
     }
   });
+
   useEffect(() => {
     try {
       localStorage.setItem("cm-theme", theme);
@@ -34,144 +39,64 @@ export default function TaskManagement() {
     if (typeof document !== "undefined") {
       document.documentElement.classList.toggle("cm-dark", theme === "dark");
     }
-  }, [theme]);
+  }, [theme]); // ✅ fixed dependency and removed stray commas
+
   const toggleTheme = (forced) => {
-    setTheme((prev) => (typeof forced === "string" ? forced : prev === "dark" ? "light" : "dark"));
+    setTheme((prev) =>
+      typeof forced === "string" ? forced : prev === "dark" ? "light" : "dark"
+    );
   };
 
   // View
   const [view, setView] = useState("board");
 
-  // Tick for “Missing” status updates
+  // ===== Tick so "Missing" recomputes after midnight without reload =====
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
 
-  // Tasks
+  // ===== Tasks (persist) =====
   const [tasks, setTasks] = useState(() => {
     try {
       const stored = JSON.parse(localStorage.getItem(STORAGE_KEY));
       return Array.isArray(stored) ? stored : [];
-    } catch {
-      return [];
-    }
+    } catch { return []; }
   });
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    } catch { }
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks)); } catch {}
   }, [tasks]);
 
-  // Date helpers & derived status
+  // ===== Date helpers & derived status (auto Missing) =====
   const startOfTodayTS = useMemo(() => {
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
     return d.getTime();
   }, [now]);
 
-  const isPast = (yyyy_mm_dd) => {
-    if (!yyyy_mm_dd) return false;
-    const t = new Date(`${yyyy_mm_dd}T00:00:00`).getTime();
+  const isPast = (due_date) => {
+    if (!due_date) return false;
+    const t = new Date(due_date).getTime();
     return t < startOfTodayTS;
   };
 
+  // ===== Derived status mapping (matches column keys) =====
   const deriveStatus = (task) => {
-    if (!task) return "todo";
-    if (task.status === "completed" || task.status === "done_late") return task.status;
+    if (task.status === "completed") return "completed";
     if (isPast(task.dueDate)) return "missing";
     return task.status;
   };
 
+
+  // ===== tasksByStatus (for Kanban) =====
   const tasksByStatus = useMemo(() => {
     const map = { todo: [], in_progress: [], missing: [], completed: [] };
-    tasks.forEach((t) => {
-      const status = deriveStatus(t);
-      map[status === "done_late" ? "completed" : status].push(t);
-    });
+    tasks.forEach((t) => map[deriveStatus(t)].push(t));
     return map;
-  }, [tasks]);
+  }, [tasks, deriveStatus]);
 
-  // Stress calculation for individual tasks
-  const getTaskStress = (task) => {
-    const status = deriveStatus(task);
-    if (status === "completed" || status === "done_late") return 0;
-    if (status === "missing") return 100;
-    if (!task.dueDate) return 0;
-
-    const dueTS = new Date(`${task.dueDate}T23:59:59`).getTime();
-    const daysToDue = (dueTS - now) / 86400000;
-    if (daysToDue < 0) return 100;
-
-    const maxDays = 7;
-    const stress = Math.max(0, 100 - (daysToDue / maxDays) * 100);
-    return Math.floor(stress);
-  };
-
-  // Memoized task stresses (used by board/list/table UIs)
-  const taskStresses = useMemo(() => {
-    return tasks.reduce((map, t) => {
-      map[t.id] = getTaskStress(t);
-      return map;
-    }, {});
-  }, [tasks, now]);
-
-  // Overall stress
-  const { overallStress, stressLevel, mainContributors, activeTasks } = useMemo(() => {
-    const activeTasks = tasks.filter((t) => {
-      const s = deriveStatus(t);
-      return s !== "completed" && s !== "done_late";
-    });
-
-    if (activeTasks.length === 0) {
-      return { overallStress: 0, stressLevel: "Low", mainContributors: [], activeTasks: [] };
-    }
-
-    const stresses = activeTasks.map((t) => getTaskStress(t));
-    const avgStress = stresses.reduce((a, b) => a + b, 0) / activeTasks.length;
-
-    const numInProgress = tasksByStatus.in_progress.length;
-    const numMissing = tasksByStatus.missing.length;
-    const adjustedStress = Math.min(100, avgStress + numInProgress * 5 + numMissing * 10);
-
-    const level = adjustedStress < 33 ? "Low" : adjustedStress < 66 ? "Moderate" : "High";
-
-    const sorted = [...activeTasks].sort((a, b) => getTaskStress(b) - getTaskStress(a));
-    const contrib = sorted
-      .slice(0, 2)
-      .flatMap((t) => t.tags && t.tags.length > 0 ? t.tags : ["(no tags)"])
-      .join(", ");
-
-    return { overallStress: Math.floor(adjustedStress), stressLevel: level, mainContributors: contrib, activeTasks: sorted };
-  }, [tasks, tasksByStatus, now]);
-
-  const recommendations = useMemo(() => {
-    if (stressLevel === "Low") {
-      return [
-        "No stress detected. Enjoy your day!",
-        "Consider planning ahead for upcoming tasks.",
-        "Relax and recharge for future challenges.",
-      ];
-    } else if (stressLevel === "Moderate") {
-      return [
-        "Take short breaks: Try the Pomodoro technique—25 minutes focus, 5 minutes rest.",
-        "Practice deep breathing exercises to center yourself.",
-        "Prioritize tasks to avoid feeling overwhelmed.",
-      ];
-    } else {
-      return [
-        "Prioritize self-care: Go for a short walk or meditate for 10 minutes.",
-        "Break tasks into smaller, manageable steps.",
-        "Reach out for support if needed—talk to a friend or mentor.",
-      ];
-    }
-  }, [stressLevel]);
-
-  // Sidebar toggle
-  const [showSidebar, setShowSidebar] = useState(true);
-
-  // Add/Edit Form state
+  // ===== Add/Edit Form =====
   const [showForm, setShowForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState(null);
   const [formError, setFormError] = useState("");
@@ -182,7 +107,6 @@ export default function TaskManagement() {
     startDate: "",
     dueDate: "",
     description: "",
-    tags: [],
   });
 
   const resetForm = () => {
@@ -195,40 +119,37 @@ export default function TaskManagement() {
       startDate: "",
       dueDate: "",
       description: "",
-      tags: [],
     });
   };
 
   const validate = (data = formData) => {
     const errs = [];
     if (!data.title?.trim()) errs.push("Title is required.");
-    if (!data.dueDate) errs.push("Due date is required.");
-    if (data.startDate && data.dueDate && data.startDate > data.dueDate) {
-      errs.push("Due date must be on/after start date.");
-    }
+    if (!data.due_date) errs.push("Due date is required.");
     setFormError(errs.join(" "));
     return errs.length === 0;
   };
 
-  const addTask = () => {
+  const addTask = async () => {
     if (!validate()) return;
     const newTask = {
       id: crypto?.randomUUID?.() ?? Date.now().toString(),
       title: formData.title.trim(),
+      // block manual 'missing', map "done" dropdown to 'completed'
       status: formData.status === "missing" ? "todo" : formData.status,
       priority: formData.priority,
       startDate: formData.startDate || "",
       dueDate: formData.dueDate || "",
       description: formData.description || "",
-      tags: formData.tags || [],
     };
     setTasks((prev) => [...prev, newTask]);
     setShowForm(false);
     resetForm();
   };
 
+
+
   const startEdit = (task) => {
-    if (!task) return;
     setEditingTaskId(task.id);
     setFormError("");
     setFormData({
@@ -238,29 +159,24 @@ export default function TaskManagement() {
       startDate: task.startDate,
       dueDate: task.dueDate,
       description: task.description,
-      tags: task.tags || [],
     });
     setShowForm(true);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!validate()) return;
     setTasks((prev) =>
       prev.map((t) =>
         t.id === editingTaskId
           ? {
-            ...t,
-            title: formData.title.trim(),
-            status:
-              formData.status === "missing" || formData.status === "done_late"
-                ? t.status
-                : formData.status,
-            priority: formData.priority,
-            startDate: formData.startDate || "",
-            dueDate: formData.dueDate || "",
-            description: formData.description || "",
-            tags: formData.tags || [],
-          }
+              ...t,
+              title: formData.title.trim(),
+              status: formData.status === "missing" ? t.status : formData.status,
+              priority: formData.priority,
+              startDate: formData.startDate || "",
+              dueDate: formData.dueDate || "",
+              description: formData.description || "",
+            }
           : t
       )
     );
@@ -268,57 +184,51 @@ export default function TaskManagement() {
     resetForm();
   };
 
-  // Status transitions
+  // ===== Status transitions (block manual "missing") =====
   const updateTaskStatus = (taskId, newStatus) => {
-    if (newStatus === "missing" || newStatus === "done_late") return;
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          if (newStatus === "completed" && isPast(t.dueDate)) {
-            return { ...t, status: "done_late" };
-          }
-          return { ...t, status: newStatus };
-        }
-        return t;
-      })
-    );
+    if (newStatus === "missing") return;
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t)));
   };
+  const completeTask = (taskId) => updateTaskStatus(taskId, "completed");
 
-  const completeTask = (taskId) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          return { ...t, status: isPast(t.dueDate) ? "done_late" : "completed" };
-        }
-        return t;
-      })
-    );
-  };
-
-  const deleteTask = (taskId) => {
+  const deleteTask = async (taskId) => {
     if (!window.confirm("Delete this task? This cannot be undone.")) return;
-    setTasks((prev) => prev.filter((t) => t.id !== taskId));
+    try {
+      await axios.delete(`http://localhost:4000/api/tasks/${taskId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTasks((prev) => prev.filter((t) => t._id !== taskId));
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error('Task delete error:', error);
+    }
   };
 
-  const deleteAll = () => {
+  const deleteAll = async () => {
     if (!window.confirm("Delete ALL tasks? This cannot be undone.")) return;
-    setTasks([]);
+    try {
+      await axios.delete(`http://localhost:4000/api/tasks?user_id=${user?.user_id || 'test_user'}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setTasks([]);
+      if (onTaskUpdate) onTaskUpdate();
+    } catch (error) {
+      console.error('Task delete all error:', error);
+    }
   };
 
   // Overview drawer
   const [viewTaskId, setViewTaskId] = useState(null);
-  const openOverview = (task) => {
-    if (task?.id) setViewTaskId(task.id);
-  };
+  const openOverview = (task) => setViewTaskId(task.id);
   const closeOverview = () => setViewTaskId(null);
-  const viewingTask = useMemo(() => tasks.find((t) => t.id === viewTaskId) || null, [tasks, viewTaskId]);
+  const viewingTask = useMemo(() => tasks.find((t) => t._id === viewTaskId) || null, [tasks, viewTaskId]);
 
   // Columns
   const columns = [
     { title: "To Do", status: "todo" },
     { title: "In Progress", status: "in_progress" },
     { title: "Missing", status: "missing" },
-    { title: "Completed", status: "completed" },
+    { title: "Completed", status: "completed" }
   ];
 
   /* ---------- Modal helpers ---------- */
@@ -352,27 +262,28 @@ export default function TaskManagement() {
         <main className="flex-1 overflow-hidden">
           <div className="mx-auto max-w-7xl h-full flex flex-col">
             {/* Header */}
-            <div className="flex-shrink-0">
-              <Card className="h-20 md:h-[80px] w-full px-2 flex items-center justify-between hover:shadow-none hover:-translate-y-0 hover:bg-inherit cursor-default">
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Task Management</h1>
-                <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1 rounded-full border border-gray-200 bg-white px-1 py-1 shadow-sm">
-                    {[
-                      { key: "board", label: "Board", Icon: Kanban },
-                      { key: "list", label: "List", Icon: List },
-                      { key: "table", label: "Table", Icon: Table },
-                    ].map((v) => (
-                      <button
-                        key={v.key}
-                        onClick={() => setView(v.key)}
-                        className={`flex items-center px-3 py-1 text-sm font-medium rounded-full transition ${view === v.key ? "bg-[#b7a42f] text-white" : "text-gray-700 hover:bg-gray-100"
-                          }`}
-                      >
-                        <v.Icon size={16} className="mr-1.5" />
-                        {v.label}
-                      </button>
-                    ))}
-                  </div>
+            <div className="h-[80px] w-full bg-card border border-gray-200 rounded-2xl shadow-sm px-4 flex items-center justify-between">
+              <h1 className="text-3xl font-bold tracking-tight">Task Management</h1>
+
+              <div className="flex items-center gap-2">
+                {/* View toggle */}
+                <div className="hidden sm:flex items-center gap-1 bg-card rounded-full px-1 py-1 border border-gray-200">
+                  {[
+                    { key: "kanban", label: "Kanban" },
+                    { key: "list", label: "List" },
+                    { key: "table", label: "Table" },
+                  ].map((v) => (
+                    <button
+                      key={v.key}
+                      onClick={() => setView(v.key)}
+                      className={`px-3 py-1 text-sm rounded-full transition ${
+                        view === v.key ? "bg-[#b7a42f] text-white" : "hover:bg-gray-100"
+                      }`}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
 
                   <select
                     className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-[#b7a42f] focus:ring-[#b7a42f] sm:hidden"
@@ -412,137 +323,42 @@ export default function TaskManagement() {
               </Card>
             </div>
 
-            {/* Main content */}
-            <div className="flex-1 min-h-0 flex flex-col lg:flex-row gap-4 p-2 md:p-3 lg:p-2">
-              <div className="flex-1 rounded-xl border border-gray-200 bg-white shadow-sm overflow-y-auto">
-                {view === "board" && (
-                  <TaskBoard
-                    columns={columns}
-                    tasksByStatus={tasksByStatus}
-                    onCardClick={openOverview}
-                    onEdit={startEdit}
-                    onDelete={deleteTask}
-                    onStatusChange={updateTaskStatus}
-                    completeTask={completeTask}
-                    deriveStatus={deriveStatus}
-                    taskStresses={taskStresses}
-                    onAddTask={(status) => {
-                      resetForm();
-                      setFormData({
-                        title: "",
-                        status: status === "missing" ? "todo" : status,
-                        priority: "Medium",
-                        startDate: "",
-                        dueDate: "",
-                        description: "",
-                        tags: [],
-                      });
-                      setShowForm(true);
-                    }}
-                  />
-                )}
-                {view === "list" && (
-                  <TaskListView
-                    tasks={tasks}
-                    deriveStatus={deriveStatus}
-                    onRowClick={openOverview}
-                    onEdit={startEdit}
-                    onDelete={deleteTask}
-                    onStatusChange={updateTaskStatus}
-                    completeTask={completeTask}
-                    taskStresses={taskStresses}
-                  />
-                )}
-                {view === "table" && (
-                  <TaskTableView
-                    tasks={tasks}
-                    deriveStatus={deriveStatus}
-                    onRowClick={openOverview}
-                    onEdit={startEdit}
-                    onDelete={deleteTask}
-                    onStatusChange={updateTaskStatus}
-                    completeTask={completeTask}
-                    taskStresses={taskStresses}
-                  />
-                )}
-              </div>
+            {/* Content */}
+            <div className="mt-3">
+              {view === "kanban" && (
+                <TaskBoard
+                  columns={columns}
+                  tasksByStatus={tasksByStatus}
+                  onCardClick={openOverview}
+                  onEdit={startEdit}
+                  onDelete={deleteTask}
+                  onStatusChange={updateTaskStatus}
+                  completeTask={completeTask}
+                />
+              )}
 
-              {showSidebar && (
-                <aside className="w-full lg:w-80 rounded-xl border border-gray-200 bg-white shadow-sm overflow-y-auto">
-                  <div className="p-5">
-                    {/* Smart Summary */}
-                    <div className="mb-6">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-lg font-bold">Smart Summary</div>
-                        <span
-                          className={`text-xs px-2 py-0.5 rounded-full ${stressLevel === "Low"
-                              ? "bg-blue-100 text-blue-700"
-                              : stressLevel === "Moderate"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-red-100 text-red-700"
-                            }`}
-                        >
-                          {stressLevel}
-                        </span>
-                      </div>
-                      <p className="text-sm mb-2">
-                        Overall stress from current tasks: <strong>{overallStress}%</strong>
-                      </p>
-                      <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
-                        <div
-                          className={`h-full transition-all duration-500 ${stressLevel === "Low" ? "bg-blue-500" : stressLevel === "Moderate" ? "bg-orange-500" : "bg-red-500"
-                            }`}
-                          style={{ width: `${overallStress}%` }}
-                        />
-                      </div>
-                      <p className="text-sm mb-2">
-                        Main contributors: <span className="font-medium">{mainContributors}</span>
-                      </p>
+              {view === "list" && (
+                <TaskListView
+                  tasks={tasks}
+                  deriveStatus={deriveStatus}
+                  onRowClick={(t) => openOverview(t)}
+                  onEdit={startEdit}
+                  onDelete={deleteTask}
+                  onStatusChange={updateTaskStatus}
+                  completeTask={completeTask}
+                />
+              )}
 
-                      {/* Per-task stress percentages */}
-                      <div className="mt-3">
-                        <div className="text-sm font-semibold mb-2">Task stress percentages</div>
-                        <div className="max-h-48 overflow-auto pr-1">
-                          {activeTasks.length === 0 ? (
-                            <div className="text-xs text-gray-500">No tasks yet.</div>
-                          ) : (
-                            activeTasks.map((t) => {
-                              const stress = getTaskStress(t);
-                              return (
-                                <div key={t.id} className="mb-2">
-                                  <div className="flex items-center justify-between text-xs">
-                                    <span className="truncate max-w-[70%]">{t.title}</span>
-                                    <span className="tabular-nums">{stress}%</span>
-                                  </div>
-                                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                    <div
-                                      className={`h-full ${stress < 33 ? "bg-blue-400" : stress < 66 ? "bg-orange-400" : "bg-red-500"
-                                        }`}
-                                      style={{ width: `${stress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* AI Stress Reducer Recommendations */}
-                    <div className="mb-6">
-                      <div className="text-lg font-bold mb-3">AI Stress Reducer Recommendations</div>
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        {recommendations.map((rec, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <span className="h-1.5 w-1.5 rounded-full bg-amber-300 inline-block mt-1.5" />
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </aside>
+              {view === "table" && (
+                <TaskTableView
+                  tasks={tasks}
+                  deriveStatus={deriveStatus}
+                  onRowClick={(t) => openOverview(t)}
+                  onEdit={startEdit}
+                  onDelete={deleteTask}
+                  onStatusChange={updateTaskStatus}
+                  completeTask={completeTask}
+                />
               )}
             </div>
           </div>

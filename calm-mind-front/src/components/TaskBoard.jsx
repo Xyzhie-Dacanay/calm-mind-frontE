@@ -51,27 +51,24 @@ export default function TaskBoard({
                 +
               </button>
             </div>
-            <div className="mt-3 flex-1 space-y-3 overflow-y-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              {columnTasks.length === 0 ? (
-                <div className="flex items-center justify-center h-full text-sm text-gray-500">
-                  No tasks here yet.
-                </div>
-              ) : (
-                columnTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    task={task}
-                    derivedStatus={deriveStatus}
-                    onClick={onCardClick}
-                    onEdit={onEdit}
-                    onDelete={onDelete}
-                    onStatusChange={onStatusChange}
-                    completeTask={completeTask}
-                    stressPercent={taskStresses[task.id] || 0}
-                    StressIndicator={StressIndicator}
-                  />
-                ))
+
+            <div className="space-y-2 overflow-y-auto h-[calc(100%-40px)] pr-1">
+              {columnTasks.length === 0 && (
+                <div className={`text-sm ${dark ? "text-gray-300" : "text-gray-500"}`}>No tasks here yet.</div>
               )}
+
+              {columnTasks.map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  derivedStatus={(t) => col.status} // already grouped by derived status
+                  onClick={onCardClick}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onStatusChange={onStatusChange}
+                  completeTask={completeTask}
+                />
+              ))}
             </div>
             
           </div>

@@ -17,77 +17,56 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Success banner state (auto-fades after 3s)
-  const [resetSuccess, setResetSuccess] = useState(
-    Boolean(location.state && location.state.resetSuccess)
-  );
-  const [bannerVisible, setBannerVisible] = useState(
-    Boolean(location.state && location.state.resetSuccess)
-  );
-
-  // Clear router state so banner doesn't persist on refresh/back
-  useEffect(() => {
-    if (location.state && location.state.resetSuccess) {
-      navigate(location.pathname, { replace: true, state: {} });
-    }
-  }, [location.pathname, location.state, navigate]);
-
-  // Auto fade-out success banner
-  useEffect(() => {
-    if (!resetSuccess) return;
-    setBannerVisible(true);
-    const fadeTimer = setTimeout(() => setBannerVisible(false), 3000); // start fade after 3s
-    const removeTimer = setTimeout(() => setResetSuccess(false), 3600); // unmount after fade
-    return () => {
-      clearTimeout(fadeTimer);
-      clearTimeout(removeTimer);
-    };
-  }, [resetSuccess]);
-
   const { login: _storeLogin, loading: _storeLoading, error: _storeError } = useAuthStore();
 
   const handleLogin = async (e) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    try {
-      setError("");
-      setLoading(true);
+  try {
+    setError("");
+    setLoading(true);
 
-      const response = await fetch("http://localhost:4000/api/users/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: email.toLowerCase(),
-          password,
-        }),
-      });
+    const response = await fetch("http://localhost:4000/api/users/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: email.toLowerCase(),
+        password,
+      }),
+    });
 
-      const data = await response.json();
-      console.log("Login response:", data);
+    const data = await response.json();
+    console.log("Login response:", data); // <--- helpful to debug
 
-      if (!response.ok) {
-        setError(data.message || "Login failed.");
-        return;
-      }
-
-      if (data.token) localStorage.setItem("token", data.token);
-      if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
-
-      const user = JSON.parse(localStorage.getItem("user"));
-      if (!user.isProfileComplete) {
-        navigate("/get-started");
-      } else {
-        navigate("/home");
-      }
-    } catch (err) {
-      console.error("Login error:", err);
-      setError("Login failed.");
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      setError(data.message || "Login failed.");
+      return;
     }
-  };
+
+    if (data.token) localStorage.setItem("token", data.token);
+    if (data.user) localStorage.setItem("user", JSON.stringify(data.user));
+
+    // Debugging token
+      console.log("Token in localStorage:", localStorage.getItem("token"));
+      console.log("User in localStorage:", localStorage.getItem("user"));
+
+    // Check if user has completed profile setup
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (!user.isProfileComplete) {
+      navigate("/get-started");
+    } else {
+      navigate("/home");
+    }
+  } catch (err) {
+    console.error("Login error:", err);
+    setError("Login failed.");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleGoSignup = () => {
     setFormAnimation("animate-swap-out-left");
@@ -181,7 +160,7 @@ export default function LoginScreen() {
               </div>
             </div>
 
-            {/* Error and loading states */}
+            {/* Error and loading */}
             {error && <p className="text-red-500 text-sm">{error}</p>}
             {loading && <p className="text-gray-500 text-sm">Logging in...</p>}
 
@@ -202,7 +181,7 @@ export default function LoginScreen() {
               </label>
             </div>
 
-            {/* Submit button */}
+            {/* Submit */}
             <button
               type="submit"
               className="w-full p-3 bg-black text-white rounded-md hover:bg-gray-800 transition"
@@ -211,7 +190,7 @@ export default function LoginScreen() {
             </button>
           </form>
 
-          {/* Signup + Forgot Password */}
+          {/* Signup + Forgot */}
           <div className="mt-6 text-center text-sm">
             <p className="text-gray-600">
               Don’t have an account?
